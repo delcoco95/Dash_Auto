@@ -1,0 +1,33 @@
+# Node
+node_modules/
+.next/
+out/
+build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+.venv/
+
+# Base de données & Fichiers générés
+*.db
+*.sqlite
+*.sqlite3
+backend/dash_auto.db
+backend/dashauto.db
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db

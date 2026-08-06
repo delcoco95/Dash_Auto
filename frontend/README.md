@@ -1,0 +1,1 @@
+Front-end placeholder: Next.js app will be created here.\nRun `npx create-next-app@latest .` inside this folder to initialize the frontend.\n
