@@ -4,12 +4,18 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 # En production sur Render, on utilise le disque persistant '/data'
-if os.getenv('RENDER'):
-    db_path = '/data/dash_auto.db'
-    DATABASE_URL = f"sqlite:///{db_path}"
-else:
-    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./dash_auto.db')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
+if not DATABASE_URL:
+    if os.getenv('RENDER'):
+        db_path = '/data/dash_auto.db'
+        DATABASE_URL = f"sqlite:///{db_path}"
+    else:
+        DATABASE_URL = 'sqlite:///./dash_auto.db'
+
+# SQLAlchemy nécessite 'postgresql://' mais beaucoup de fournisseurs utilisent 'postgres://'
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith('sqlite') else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

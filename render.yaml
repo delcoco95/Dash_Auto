@@ -3,14 +3,12 @@ services:
     name: dash-auto-backend
     env: python
     region: frankfurt
-    buildCommand: "cd backend && pip install -r requirements.txt && python migrations/migrate_v3.py"
+    buildCommand: "cd backend && pip install -r requirements.txt"
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: RENDER
         value: "true"
       - key: PYTHON_VERSION
         value: "3.11.0"
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
+      - key: DATABASE_URL
+        sync: false
