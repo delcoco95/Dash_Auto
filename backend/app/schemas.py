@@ -234,3 +234,33 @@ class DocumentRead(DocumentBase):
 
 class AIQueryRequest(BaseModel):
     query: str
+
+# ══════════════════════════════════════════════════════════════
+# EVENT (PLANNING)
+# ══════════════════════════════════════════════════════════════
+
+class EventBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+    type: Optional[str] = 'rendez-vous'
+    vehicle_id: Optional[int] = None
+
+class EventCreate(EventBase):
+    pass
+
+class EventUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    type: Optional[str] = None
+    vehicle_id: Optional[int] = None
+
+class EventRead(EventBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

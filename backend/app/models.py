@@ -131,3 +131,16 @@ class User(Base):
     password_hash = Column(String)
     name = Column(String, nullable=True)
     role = Column(String, default='user')
+
+class Event(Base):
+    __tablename__ = 'events'
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    type = Column(String, default='rendez-vous') # rendez-vous, location, autre
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='SET NULL'), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    vehicle = relationship('Vehicle')
+

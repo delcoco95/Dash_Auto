@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
-import useSWR from 'swr'
+import useSWR, { useSWRConfig } from 'swr'
 import Layout from '../../components/Layout'
+import CalendarModal from '../../components/CalendarModal'
 import { ArrowUpRight, Plus, Users, LayoutList, Calendar as CalendarIcon, Car, Wrench, MoreHorizontal, Video, FileText, X } from 'lucide-react'
 import {
   Chart as ChartJS,
@@ -39,8 +40,63 @@ export default function Dashboard() {
   const { data: stats, error: statsError } = useSWR(`${API_URL}/stats`, fetcher, { refreshInterval: 30000 })
   const { data: vehicles } = useSWR(`${API_URL}/vehicles`, fetcher)
   const { data: charges } = useSWR(`${API_URL}/charges`, fetcher)
+  const { data: events = [] } = useSWR(`${API_URL}/events`, fetcher)
+  const { data: interventions = [] } = useSWR(`${API_URL}/interventions`, fetcher)
+  const { mutate } = useSWRConfig()
 
-  const [activeModal, setActiveModal] = useState(null) // 'ventes' | 'achats' | 'charges' | 'profit' | null
+  const [activeModal, setActiveModal] = useState(null) // 'ventes' | 'achats' | 'charges' | 'profit' | 'calendar' | 'intervention' | null
+
+  const handleAddEvent = async (payload) => {
+    const res = await fetch(`${API_URL}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('Failed to create event')
+    mutate(`${API_URL}/events`)
+  }
+
+  const handleUpdateEvent = async (id, payload) => {
+    const res = await fetch(`${API_URL}/events/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('Failed to update event')
+    mutate(`${API_URL}/events`)
+  }
+
+  const handleDeleteEvent = async (id) => {
+    const res = await fetch(`${API_URL}/events/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error('Failed to delete event')
+    mutate(`${API_URL}/events`)
+  }
+
+  const handleAddIntervention = async (e) => {
+    e.preventDefault()
+    const form = new FormData(e.target)
+    const payload = {
+      title: form.get('title'),
+      category: form.get('category'),
+      date_planned: form.get('date_planned'),
+      vehicle_id: parseInt(form.get('vehicle_id')),
+      status: 'à prévoir'
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/interventions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('Failed to create intervention')
+      mutate(`${API_URL}/interventions`)
+      setActiveModal(null)
+      // toast success handled globally or silently here, react-hot-toast should be available but not imported
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   // Chart Logic (Monthly)
   const chartData = useMemo(() => {
@@ -234,15 +290,24 @@ export default function Dashboard() {
         <div className="widget-card">
           <div className="widget-header">
             <div className="widget-title">Planning</div>
-            <button className="kpi-icon-wrapper" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('calendar')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
               <ArrowUpRight size={16} color="var(--text-primary)" />
             </button>
           </div>
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>Visite - Peugeot 3008</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Aujourd'hui à 14:30</p>
+          <div style={{ marginBottom: '16px', flex: 1 }}>
+            {events.filter(e => new Date(e.start_time) >= new Date()).slice(0, 2).map((e, idx) => (
+              <div key={idx} style={{ marginBottom: 12 }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px', color: 'var(--text-primary)' }}>{e.title}</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+                  {formatDate(e.start_time)} à {new Date(e.start_time).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                </p>
+              </div>
+            ))}
+            {events.filter(e => new Date(e.start_time) >= new Date()).length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Aucun événement à venir.</p>
+            )}
           </div>
-          <button className="btn btn-primary" style={{ width: '100%' }}>
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setActiveModal('calendar')}>
             <CalendarIcon size={16} /> Ouvrir le calendrier complet
           </button>
         </div>
@@ -253,20 +318,25 @@ export default function Dashboard() {
         <div className="widget-card">
           <div className="widget-header">
             <div className="widget-title">Prochains Entretiens</div>
-            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px' }}><Plus size={14}/> Ajouter</button>
+            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px' }} onClick={() => setActiveModal('intervention')}><Plus size={14}/> Ajouter</button>
           </div>
           
           <div className="task-list">
-            <div className="task-item">
-              <div className="task-info">
-                <div className="task-icon"><Wrench size={20} color="var(--accent-primary)"/></div>
-                <div>
-                  <div className="task-title">Vidange Complète - Renault Clio 4</div>
-                  <div className="task-date">Prévu le : 26 Nov, 2026</div>
+            {interventions.filter(i => new Date(i.date_planned) >= new Date() && i.status !== 'terminée').slice(0, 3).map((i, idx) => (
+              <div key={idx} className="task-item">
+                <div className="task-info">
+                  <div className="task-icon"><Wrench size={20} color="var(--accent-primary)"/></div>
+                  <div>
+                    <div className="task-title">{i.title} - {vehicles?.find(v => v.id === i.vehicle_id)?.brand || 'Véhicule Inconnu'}</div>
+                    <div className="task-date">Prévu le : {formatDate(i.date_planned)}</div>
+                  </div>
                 </div>
+                <span className={`badge ${i.status === 'en cours' ? 'badge-in-progress' : 'badge-todo'}`}>{i.status === 'en cours' ? 'En Cours' : 'À Faire'}</span>
               </div>
-              <span className="badge badge-todo">À Faire</span>
-            </div>
+            ))}
+            {interventions.filter(i => new Date(i.date_planned) >= new Date() && i.status !== 'terminée').length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Aucun entretien prévu.</p>
+            )}
           </div>
         </div>
 
@@ -319,6 +389,60 @@ export default function Dashboard() {
             ) : (
               renderTransactionsList()
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Modal */}
+      {activeModal === 'calendar' && (
+        <CalendarModal 
+          events={events}
+          vehicles={vehicles}
+          onClose={() => setActiveModal(null)}
+          onAddEvent={handleAddEvent}
+          onUpdateEvent={handleUpdateEvent}
+          onDeleteEvent={handleDeleteEvent}
+        />
+      )}
+
+      {/* Intervention Modal */}
+      {activeModal === 'intervention' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Nouvel Entretien</h2>
+              <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            
+            <form onSubmit={handleAddIntervention}>
+              <div className="form-group">
+                <label className="form-label">Titre de l'intervention</label>
+                <input name="title" required type="text" className="form-input" placeholder="Ex: Contrôle technique" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Catégorie</label>
+                <select name="category" required className="form-input">
+                  <option value="CT">Contrôle Technique</option>
+                  <option value="Vidange">Vidange</option>
+                  <option value="Réparation">Réparation</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Véhicule</label>
+                <select name="vehicle_id" required className="form-input">
+                  <option value="">-- Choisir un véhicule --</option>
+                  {vehicles && vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.registration})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date prévue</label>
+                <input name="date_planned" required type="date" className="form-input" />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 10 }}>Enregistrer</button>
+            </form>
           </div>
         </div>
       )}

@@ -110,6 +110,10 @@ def get_vehicle_interventions(vehicle_id: int, db=Depends(get_db)):
 # INTERVENTIONS
 # ══════════════════════════════════════════════════════════════
 
+@app.get("/interventions", response_model=List[schemas.InterventionRead])
+def list_interventions(skip: int = 0, limit: int = 200, db=Depends(get_db)):
+    return crud.get_interventions(db, skip, limit)
+
 @app.post("/interventions", response_model=schemas.InterventionRead, status_code=201)
 def create_intervention(i: schemas.InterventionCreate, db=Depends(get_db)):
     return crud.create_intervention(db, i)
@@ -321,3 +325,28 @@ def get_stats(db=Depends(get_db)):
 @app.post("/ai/query")
 def ai_query(payload: schemas.AIQueryRequest, db=Depends(get_db)):
     return ai_agent.handle_query(db, payload.query)
+
+# ══════════════════════════════════════════════════════════════
+# EVENTS (PLANNING)
+# ══════════════════════════════════════════════════════════════
+
+@app.get("/events", response_model=List[schemas.EventRead])
+def list_events(skip: int = 0, limit: int = 200, start_date: str = None, end_date: str = None, db=Depends(get_db)):
+    return crud.get_events(db, skip, limit, start_date, end_date)
+
+@app.post("/events", response_model=schemas.EventRead, status_code=201)
+def create_event(e: schemas.EventCreate, db=Depends(get_db)):
+    return crud.create_event(db, e)
+
+@app.put("/events/{event_id}", response_model=schemas.EventRead)
+def update_event(event_id: int, data: schemas.EventUpdate, db=Depends(get_db)):
+    result = crud.update_event(db, event_id, data)
+    if not result:
+        raise HTTPException(status_code=404, detail="Evénement non trouvé")
+    return result
+
+@app.delete("/events/{event_id}")
+def delete_event(event_id: int, db=Depends(get_db)):
+    if not crud.delete_event(db, event_id):
+        raise HTTPException(status_code=404, detail="Evénement non trouvé")
+    return {"message": "Evénement supprimé"}
