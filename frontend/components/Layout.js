@@ -17,10 +17,7 @@ import {
 const navLinks = [
   { href: '/app/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
   { href: '/app/vehicles',  icon: Car,             label: 'Flotte' },
-  { href: '#',              icon: Briefcase,       label: 'Commercial' },
   { href: '/app/documents', icon: FileText,        label: 'Administratif' },
-  { href: '#',              icon: Wrench,          label: 'Entretien' },
-  { href: '#',              icon: Calendar,        label: 'Planning' },
 ]
 
 export default function Layout({ children, title = 'Dash Auto' }) {
