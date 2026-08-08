@@ -1,6 +1,6 @@
 import useSWR from 'swr'
 import Layout from '../../components/Layout'
-import { ArrowUpRight, Plus, Users, LayoutList, Calendar as CalendarIcon, Car, Wrench, MoreHorizontal, Video } from 'lucide-react'
+import { ArrowUpRight, Plus, Users, LayoutList, Calendar as CalendarIcon, Car, Wrench, MoreHorizontal, Video, FileText } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
