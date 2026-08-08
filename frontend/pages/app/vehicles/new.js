@@ -34,7 +34,7 @@ export default function NewVehicle() {
   return (
     <Layout title="Ajouter un véhicule">
       <div className="page-header">
-        <h1 className="page-title">🚗 Ajouter un véhicule</h1>
+        <h1 className="page-title"> Ajouter un véhicule</h1>
         <p className="page-subtitle">Renseignez les informations du véhicule</p>
       </div>
       <div className="page-body">
@@ -48,7 +48,7 @@ export default function NewVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-            ⚠️ {error}
+            ️ {error}
           </div>
         )}
         <div className="card">
@@ -56,7 +56,7 @@ export default function NewVehicle() {
             <VehicleForm
               onSubmit={handleSubmit}
               loading={loading}
-              submitLabel="✓ Créer le véhicule"
+              submitLabel=" Créer le véhicule"
             />
           </div>
         </div>

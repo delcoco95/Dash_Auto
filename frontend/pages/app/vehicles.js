@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../components/Layout'
+import { Search, AlertTriangle, Car } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -69,7 +70,7 @@ export default function Vehicles() {
         {/* ── Barre de recherche + filtres ── */}
         <div className="search-filter-bar">
           <div className="search-input-wrapper">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon"><Search size={16} /></span>
             <input
               className="search-input"
               placeholder="Rechercher par marque, modèle, immatriculation, couleur..."
@@ -110,7 +111,7 @@ export default function Vehicles() {
               style={{ fontSize: 13, padding: '7px 12px' }}
               onClick={() => { setSearch(''); setStatus(''); setFuel('') }}
             >
-              ✕ Réinitialiser
+               Réinitialiser
             </button>
           )}
         </div>
@@ -119,7 +120,10 @@ export default function Vehicles() {
         {error && (
           <div className="card">
             <div className="card-body">
-              <div className="empty-state">⚠️ Impossible de contacter le backend.</div>
+              <div className="empty-state">
+                <AlertTriangle size={24} color="var(--warning)" style={{ marginBottom: 12 }} />
+                <div>Impossible de contacter le backend.</div>
+              </div>
             </div>
           </div>
         )}
@@ -132,9 +136,17 @@ export default function Vehicles() {
           <div className="card">
             <div className="card-body">
               <div className="empty-state">
-                {search || status || fuel
-                  ? '🔍 Aucun véhicule ne correspond aux filtres.'
-                  : '🚗 Aucun véhicule. Commencez par en ajouter un !'}
+                {search || status || fuel ? (
+                  <>
+                    <Search size={24} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+                    <div>Aucun véhicule ne correspond aux filtres.</div>
+                  </>
+                ) : (
+                  <>
+                    <Car size={24} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+                    <div>Aucun véhicule. Commencez par en ajouter un !</div>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -55,7 +55,7 @@ export default function EditVehicle() {
             ← {title}
           </Link>
         </div>
-        <h1 className="page-title">✏️ Modifier — {title}</h1>
+        <h1 className="page-title">️ Modifier — {title}</h1>
         <p className="page-subtitle">Mettez à jour les informations du véhicule</p>
       </div>
 
@@ -70,7 +70,7 @@ export default function EditVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-            ⚠️ {error}
+            ️ {error}
           </div>
         )}
         {saved && (
@@ -83,7 +83,7 @@ export default function EditVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-            ✓ Véhicule mis à jour ! Redirection...
+             Véhicule mis à jour ! Redirection...
           </div>
         )}
         <div className="card">
@@ -100,7 +100,7 @@ export default function EditVehicle() {
               }}
               onSubmit={handleSubmit}
               loading={saving}
-              submitLabel="✓ Enregistrer les modifications"
+              submitLabel=" Enregistrer les modifications"
             />
           </div>
         </div>

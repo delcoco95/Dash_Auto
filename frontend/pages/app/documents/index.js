@@ -32,12 +32,12 @@ export default function DocumentsGlobal() {
   const { data: vehicles } = useSWR(`${API_URL}/vehicles`, fetcher)
 
   const docIcon = (type) => {
-    if (!type) return '📄'
-    if (type.startsWith('image/')) return '🖼️'
-    if (type.includes('pdf')) return '📕'
-    if (type.includes('word') || type.includes('doc')) return '📘'
-    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return '📗'
-    return '📄'
+    if (!type) return ''
+    if (type.startsWith('image/')) return '️'
+    if (type.includes('pdf')) return ''
+    if (type.includes('word') || type.includes('doc')) return ''
+    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return ''
+    return ''
   }
 
   const deleteDoc = async (id) => {
@@ -64,7 +64,7 @@ export default function DocumentsGlobal() {
   return (
     <Layout title="Tous les Documents">
       <div className="page-header">
-        <h1 className="page-title">📎 Documents centralisés</h1>
+        <h1 className="page-title"> Documents centralisés</h1>
         <p className="page-subtitle">Gérez toutes les factures, contrats et documents administratifs du parc.</p>
       </div>
 
@@ -72,7 +72,7 @@ export default function DocumentsGlobal() {
         {/* ── Filtres ── */}
         <div className="search-filter-bar">
           <div className="search-input-wrapper">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon"></span>
             <input
               className="search-input"
               placeholder="Rechercher un document..."
@@ -83,7 +83,7 @@ export default function DocumentsGlobal() {
 
           <select className="filter-select" value={vehicleFilter} onChange={e => setVehicleFilter(e.target.value)}>
             <option value="">Tous les véhicules</option>
-            <option value="unclassified">⚠️ Non classés (Aucun véhicule)</option>
+            <option value="unclassified">️ Non classés (Aucun véhicule)</option>
             {vehicles?.map(v => (
               <option key={v.id} value={v.id}>{v.registration || v.vin || `${v.brand} ${v.model}`}</option>
             ))}
@@ -174,7 +174,7 @@ export default function DocumentsGlobal() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="btn-icon danger" onClick={() => deleteDoc(d.id)} title="Supprimer">✕</button>
+                          <button className="btn-icon danger" onClick={() => deleteDoc(d.id)} title="Supprimer"></button>
                         </td>
                       </tr>
                     )

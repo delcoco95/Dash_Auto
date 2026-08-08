@@ -8,11 +8,12 @@
     "start": "next start -p 3000"
   },
   "dependencies": {
+    "chart.js": "^4.4.0",
+    "lucide-react": "^1.30.0",
     "next": "13.5.4",
     "react": "18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "18.2.0",
-    "swr": "^2.2.0",
-    "chart.js": "^4.4.0",
-    "react-chartjs-2": "^5.2.0"
+    "swr": "^2.2.0"
   }
 }

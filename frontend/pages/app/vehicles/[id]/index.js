@@ -44,7 +44,7 @@ function Toast({ toasts }) {
     <div className="toast-container">
       {toasts.map(t => (
         <div key={t.id} className={`toast toast-${t.type}`}>
-          {t.type === 'success' ? '✓' : '⚠'} {t.message}
+          {t.type === 'success' ? '' : ''} {t.message}
         </div>
       ))}
     </div>
@@ -73,12 +73,12 @@ const CHARGE_CATS = ['Achat', 'Réparation', 'Entretien', 'Assurance', 'Transpor
 const DOC_CATS = ['Photo', 'Facture', 'Contrôle technique', 'Carte grise', 'Assurance', 'Devis', 'Contrat', 'Rapport', 'Autre']
 
 const TABS = [
-  { id: 'info',          label: '📋 Informations' },
-  { id: 'images',        label: '🖼️ Galerie' },
-  { id: 'docs',          label: '📎 Documents' },
-  { id: 'interventions', label: '🔧 Travaux' },
-  { id: 'charges',       label: '💸 Charges' },
-  { id: 'histo',         label: '📜 Historique' },
+  { id: 'info',          label: ' Informations' },
+  { id: 'images',        label: '️ Galerie' },
+  { id: 'docs',          label: ' Documents' },
+  { id: 'interventions', label: ' Travaux' },
+  { id: 'charges',       label: ' Charges' },
+  { id: 'histo',         label: ' Historique' },
 ]
 
 export default function VehicleDetail() {
@@ -233,7 +233,7 @@ export default function VehicleDetail() {
       <div className="page-header"><h1 className="page-title">Véhicule non trouvé</h1></div>
       <div className="page-body">
         <div className="card"><div className="card-body">
-          <div className="empty-state">⚠️ Véhicule introuvable.<br />
+          <div className="empty-state">️ Véhicule introuvable.<br />
             <Link href="/app/vehicles" style={{ color: 'var(--accent)', marginTop: 12, display: 'inline-block' }}>← Retour à la liste</Link>
           </div>
         </div></div>
@@ -258,12 +258,12 @@ export default function VehicleDetail() {
   })()
 
   const docIcon = (type) => {
-    if (!type) return '📄'
-    if (type.startsWith('image/')) return '🖼️'
-    if (type.includes('pdf')) return '📕'
-    if (type.includes('word') || type.includes('doc')) return '📘'
-    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return '📗'
-    return '📄'
+    if (!type) return ''
+    if (type.startsWith('image/')) return '️'
+    if (type.includes('pdf')) return ''
+    if (type.includes('word') || type.includes('doc')) return ''
+    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return ''
+    return ''
   }
 
   const histovecUrl = vehicle.registration 
@@ -304,10 +304,10 @@ export default function VehicleDetail() {
           </div>
           <div className="detail-actions">
             <Link href={`/app/vehicles/${id}/edit`} className="btn btn-ghost">
-              ✏️ Modifier
+              ️ Modifier
             </Link>
             <button className="btn btn-danger btn" onClick={() => setConfirmDelete(true)}>
-              🗑 Supprimer
+               Supprimer
             </button>
           </div>
         </div>
@@ -335,7 +335,7 @@ export default function VehicleDetail() {
         {tab === 'info' && (
           <>
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title">🚗 Identité</span></div>
+              <div className="card-header"><span className="card-title"> Identité</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Marque"         value={vehicle.brand} />
@@ -355,7 +355,7 @@ export default function VehicleDetail() {
             </div>
 
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title">💰 Financier</span></div>
+              <div className="card-header"><span className="card-title"> Financier</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Kilométrage"     value={fmtKm(vehicle.km)} />
@@ -373,7 +373,7 @@ export default function VehicleDetail() {
             </div>
 
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title">🔧 Technique</span></div>
+              <div className="card-header"><span className="card-title"> Technique</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Dernier entretien"  value={fmtDate(vehicle.date_last_service)} />
@@ -390,7 +390,7 @@ export default function VehicleDetail() {
 
             {(vehicle.notes || vehicle.internal_notes || customFields.length > 0) && (
               <div className="card">
-                <div className="card-header"><span className="card-title">📝 Notes</span></div>
+                <div className="card-header"><span className="card-title"> Notes</span></div>
                 <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {vehicle.notes && (
                     <div>
@@ -422,7 +422,7 @@ export default function VehicleDetail() {
         {tab === 'images' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">🖼️ Galerie Photos ({images?.length ?? 0})</span>
+              <span className="card-title">️ Galerie Photos ({images?.length ?? 0})</span>
               <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
                 onClick={() => !uploading && imgRef.current?.click()}>
                 {uploading ? '⟳ Envoi...' : '+ Ajouter Image'}
@@ -462,7 +462,7 @@ export default function VehicleDetail() {
                         )}
                         <button onClick={() => deleteImage(img.id)} title="Supprimer"
                           style={{ background: 'rgba(255,77,109,0.8)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px 6px' }}>
-                          ✕
+                          
                         </button>
                       </div>
                     </div>
@@ -477,7 +477,7 @@ export default function VehicleDetail() {
         {tab === 'charges' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">💸 Charges ({charges?.length ?? 0})</span>
+              <span className="card-title"> Charges ({charges?.length ?? 0})</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {charges?.length > 0 && (
                   <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>
@@ -534,7 +534,7 @@ export default function VehicleDetail() {
                       <span className="charge-desc">{c.description || '—'}</span>
                       <span className="charge-date">{fmtDate(c.date)}</span>
                       <span className="charge-amount">- {fmt(c.amount)}</span>
-                      <button className="btn-icon danger" title="Supprimer" onClick={() => deleteCharge(c.id)}>✕</button>
+                      <button className="btn-icon danger" title="Supprimer" onClick={() => deleteCharge(c.id)}></button>
                     </div>
                   ))}
                 </div>
@@ -547,7 +547,7 @@ export default function VehicleDetail() {
         {tab === 'docs' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">📎 Documents Administratifs ({docs?.length ?? 0})</span>
+              <span className="card-title"> Documents Administratifs ({docs?.length ?? 0})</span>
             </div>
             <div className="card-body">
               {/* Detailed Upload form */}
@@ -598,7 +598,7 @@ export default function VehicleDetail() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); handleDocUpload(e.dataTransfer.files[0]) }}
                 >
-                  <div className="upload-zone-icon">{uploading ? '⟳' : '📎'}</div>
+                  <div className="upload-zone-icon">{uploading ? '⟳' : ''}</div>
                   <div className="upload-zone-text">
                     {uploading ? 'Envoi en cours...' : 'Cliquez ou glissez le fichier ici pour valider'}
                   </div>
@@ -629,7 +629,7 @@ export default function VehicleDetail() {
                             {d.expiration_date && <span style={{ fontSize: 11, color: 'var(--danger)' }}>Exp: {fmtDate(d.expiration_date)}</span>}
                           </div>
                         </div>
-                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}>✕</button>
+                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}></button>
                       </div>
                     )
                   })}
@@ -643,7 +643,7 @@ export default function VehicleDetail() {
         {tab === 'interventions' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">🔧 Travaux & Interventions ({interventions?.length ?? 0})</span>
+              <span className="card-title"> Travaux & Interventions ({interventions?.length ?? 0})</span>
               <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
                 onClick={() => setShowIntForm(s => !s)}>
                 + Ajouter
@@ -708,10 +708,10 @@ export default function VehicleDetail() {
                       <div className="intervention-content">
                         <div className="intervention-title">{i.title}</div>
                         <div className="intervention-meta">
-                          {i.category && <span>🏷 {i.category}</span>}
-                          {i.date_planned && <span>📅 {fmtDate(i.date_planned)}</span>}
-                          {i.cost_estimated != null && <span>💰 Estimé : {fmt(i.cost_estimated)}</span>}
-                          {i.cost_actual != null && <span>✓ Réel : {fmt(i.cost_actual)}</span>}
+                          {i.category && <span> {i.category}</span>}
+                          {i.date_planned && <span> {fmtDate(i.date_planned)}</span>}
+                          {i.cost_estimated != null && <span> Estimé : {fmt(i.cost_estimated)}</span>}
+                          {i.cost_actual != null && <span> Réel : {fmt(i.cost_actual)}</span>}
                         </div>
                         {i.description && (
                           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>{i.description}</p>
@@ -728,7 +728,7 @@ export default function VehicleDetail() {
                         >
                           {INT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <button className="btn-icon danger" title="Supprimer" onClick={() => deleteIntervention(i.id)}>✕</button>
+                        <button className="btn-icon danger" title="Supprimer" onClick={() => deleteIntervention(i.id)}></button>
                       </div>
                     </div>
                   ))}
@@ -742,12 +742,12 @@ export default function VehicleDetail() {
         {tab === 'histo' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">📜 Historique & Origine</span>
+              <span className="card-title"> Historique & Origine</span>
             </div>
             <div className="card-body">
               <div style={{ background: 'var(--surface-light)', padding: 24, borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🔍 Service HistoVec
+                   Service HistoVec
                 </h3>
                 <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
                   Le service public HistoVec permet de consulter l'historique complet d'un véhicule immatriculé en France (nombre de propriétaires, sinistres, alertes, kilométrage CT).
@@ -759,7 +759,7 @@ export default function VehicleDetail() {
                 </div>
                 <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-                  💡 Vous pouvez importer le rapport PDF généré par HistoVec dans l'onglet <strong>Documents</strong> afin que l'Assistant IA puisse l'analyser automatiquement.
+                   Vous pouvez importer le rapport PDF généré par HistoVec dans l'onglet <strong>Documents</strong> afin que l'Assistant IA puisse l'analyser automatiquement.
                 </p>
               </div>
 

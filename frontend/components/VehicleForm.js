@@ -5,10 +5,10 @@
 import { useState } from 'react'
 
 const TABS = [
-  { id: 'general',   label: '📋 Général' },
-  { id: 'financial', label: '💰 Financier' },
-  { id: 'technical', label: '🔧 Technique' },
-  { id: 'notes',     label: '📝 Notes & Perso' },
+  { id: 'general',   label: 'Général' },
+  { id: 'financial', label: 'Financier' },
+  { id: 'technical', label: 'Technique' },
+  { id: 'notes',     label: 'Notes & Perso' },
 ]
 
 const VEHICLE_TYPES  = ['Berline', 'SUV / 4x4', 'Coupé', 'Cabriolet', 'Break', 'Monospace', 'Utilitaire', 'Camionnette', 'Moto', 'Autre']
@@ -147,7 +147,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
       {activeTab === 'general' && (
         <>
           <div className="form-section">
-            <div className="form-section-title">🚗 Identité du véhicule</div>
+            <div className="form-section-title">Identité du véhicule</div>
             <div className="form-grid-3">
               <Field label="Marque" required error={errors.brand}>
                 <Input name="brand" value={form.brand} onChange={handleChange} placeholder="Ex: Renault" />
@@ -171,7 +171,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">⚙️ Caractéristiques</div>
+            <div className="form-section-title">Caractéristiques</div>
             <div className="form-grid-3">
               <Field label="Type de véhicule">
                 <Select name="type" value={form.type} onChange={handleChange} options={VEHICLE_TYPES} />
@@ -195,7 +195,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">📌 Statut</div>
+            <div className="form-section-title">Statut</div>
             <div className="form-grid-2">
               <Field label="Statut du véhicule">
                 <Select name="status" value={form.status} onChange={handleChange} options={STATUSES} placeholder="— Statut —" />
@@ -209,7 +209,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
       {activeTab === 'financial' && (
         <>
           <div className="form-section">
-            <div className="form-section-title">🛒 Achat</div>
+            <div className="form-section-title">Achat</div>
             <div className="form-grid-3">
               <Field label="Date d'achat">
                 <Input name="date_buy" type="date" value={form.date_buy} onChange={handleChange} />
@@ -224,7 +224,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">💰 Vente</div>
+            <div className="form-section-title">Vente</div>
             <div className="form-grid-3">
               <Field label="Date de vente">
                 <Input name="date_sell" type="date" value={form.date_sell} onChange={handleChange} />
@@ -268,7 +268,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
       {activeTab === 'technical' && (
         <>
           <div className="form-section">
-            <div className="form-section-title">🔧 Entretien</div>
+            <div className="form-section-title">Entretien</div>
             <div className="form-grid-2">
               <Field label="Date du dernier entretien">
                 <Input name="date_last_service" type="date" value={form.date_last_service} onChange={handleChange} />
@@ -286,7 +286,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">🔍 État général</div>
+            <div className="form-section-title">État général</div>
             <div className="form-grid-2">
               <Field label="État du moteur">
                 <Select name="engine_state" value={form.engine_state} onChange={handleChange} options={STATES.filter(s => s)} placeholder="— État moteur —" />
@@ -309,7 +309,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
       {activeTab === 'notes' && (
         <>
           <div className="form-section">
-            <div className="form-section-title">📝 Notes</div>
+            <div className="form-section-title">Notes</div>
             <div className="form-group">
               <label className="form-label">Notes générales</label>
               <textarea
@@ -337,7 +337,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           </div>
 
           <div className="form-section">
-            <div className="form-section-title">⚡ Champs personnalisés</div>
+            <div className="form-section-title">Champs personnalisés</div>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
               Ajoutez des informations supplémentaires libres (ex : Origine, Garantie, Options…)
             </p>

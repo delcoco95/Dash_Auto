@@ -1,5 +1,25 @@
 import useSWR from 'swr'
 import Layout from '../../components/Layout'
+import { ArrowUpRight, Plus, Users, LayoutList, Calendar as CalendarIcon, Car, Wrench, MoreHorizontal, Video } from 'lucide-react'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+)
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -9,112 +29,218 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
-const kpiConfig = [
-  { key: 'total_buy',     label: 'Total Achats',  icon: '🛒', color: '#6c63ff' },
-  { key: 'total_sell',    label: 'Total Ventes',  icon: '💰', color: '#00d4aa' },
-  { key: 'total_charges', label: 'Total Charges', icon: '🔧', color: '#f5a623' },
-  { key: 'total_profit',  label: 'Profit Net',    icon: '📈', color: '#ff4d6d', isProfit: true },
-]
-
 export default function Dashboard() {
   const { data, error } = useSWR(`${API_URL}/stats`, fetcher, { refreshInterval: 30000 })
 
+  // Static Data for the mock widgets
+  const chartData = {
+    labels: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+    datasets: [
+      {
+        label: 'Achats',
+        data: [12000, 19000, 3000, 5000, 20000, 30000, 45000],
+        backgroundColor: '#e8f4ec',
+        borderRadius: 8,
+      },
+      {
+        label: 'Ventes',
+        data: [15000, 25000, 10000, 8000, 24000, 38000, 50000],
+        backgroundColor: '#0d532a',
+        borderRadius: 8,
+      }
+    ]
+  }
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: { grid: { display: false }, border: { display: false } },
+      y: { display: false }
+    }
+  }
+
   if (error) return (
-    <Layout title="Dashboard">
-      <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-      </div>
-      <div className="page-body">
-        <div className="card">
-          <div className="card-body">
-            <div className="empty-state">
-              ⚠️ Impossible de contacter le backend — vérifiez que <code>localhost:8000</code> est démarré.
-            </div>
-          </div>
-        </div>
-      </div>
+    <Layout title="Tableau de bord">
+      <div className="empty-state">Erreur de connexion au backend.</div>
     </Layout>
   )
 
   if (!data) return (
-    <Layout title="Dashboard">
-      <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-      </div>
-      <div className="page-body">
-        <div className="loading-spinner">
-          <div className="spinner" /> Chargement des données...
-        </div>
-      </div>
+    <Layout title="Tableau de bord">
+      <div className="loading-spinner">Chargement des données...</div>
     </Layout>
   )
 
   const profit = data.total_profit ?? 0
-  const maxProfit = data.top_vehicles?.length
-    ? Math.max(...data.top_vehicles.map(v => Math.abs(v.profit || 0)), 1)
-    : 1
+  const isProfitNeg = profit < 0
 
   return (
-    <Layout title="Dashboard">
+    <Layout title="Tableau de bord">
       <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Vue d'ensemble de votre activité</p>
+        <div>
+          <h1 className="page-title">Tableau de bord</h1>
+          <p className="page-subtitle">Gérez et optimisez votre flotte automobile avec simplicité.</p>
+        </div>
+        <div>
+          <button className="btn btn-outline" style={{ marginRight: '10px' }}>
+            Importer Données
+          </button>
+          <button className="btn btn-primary">
+            <Plus size={16} /> Nouveau Véhicule
+          </button>
+        </div>
       </div>
 
-      <div className="page-body">
-        {/* KPI Cards */}
-        <div className="kpi-grid">
-          {kpiConfig.map(({ key, label, icon, color, isProfit }, i) => {
-            const val = data[key] ?? 0
-            const isNeg = isProfit && val < 0
-            return (
-              <div
-                key={key}
-                className={`kpi-card fade-in-up fade-in-up-${i + 1}`}
-                style={{ '--kpi-color': color }}
-              >
-                <span className="kpi-icon">{icon}</span>
-                <div className="kpi-label">{label}</div>
-                <div className={`kpi-value ${isProfit ? (isNeg ? 'negative' : 'positive') : ''}`}>
-                  {fmt(val)}
-                </div>
-              </div>
-            )
-          })}
+      {/* KPI Grid */}
+      <div className="kpi-grid">
+        <div className="kpi-card primary">
+          <div className="kpi-card-header">
+            <div className="kpi-title">Profit Net Global</div>
+            <div className="kpi-icon-wrapper"><ArrowUpRight size={16} /></div>
+          </div>
+          <div className="kpi-value">{fmt(profit)}</div>
+          <div className="kpi-trend">
+            <span className="kpi-trend-badge">{isProfitNeg ? '-' : '+'} 12%</span>
+            Depuis le mois dernier
+          </div>
         </div>
 
-        {/* Top Véhicules */}
-        <div className="card fade-in-up fade-in-up-4" style={{ maxWidth: 680 }}>
-          <div className="card-header">
-            <span className="card-title">🏆 Top Véhicules par Profit</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {data.top_vehicles?.length ?? 0} véhicule(s)
-            </span>
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div className="kpi-title">Total Ventes</div>
+            <div className="kpi-icon-wrapper"><ArrowUpRight size={16} color="var(--text-primary)" /></div>
           </div>
-          <div className="card-body">
-            {data.top_vehicles?.length ? (
-              data.top_vehicles.map((t, idx) => (
-                <div className="top-vehicle-item" key={t.vehicle_id}>
-                  <div className="top-vehicle-rank">#{idx + 1}</div>
-                  <div className="top-vehicle-info">
-                    <div className="top-vehicle-name">
-                      {t.brand ? `${t.brand} ${t.model || ''}`.trim() : `Véhicule #${t.vehicle_id}`}
-                    </div>
-                  </div>
-                  <div className="progress-bar-track">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ width: `${Math.max(4, (Math.abs(t.profit || 0) / maxProfit) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="top-vehicle-profit">
-                    {fmt(t.profit)}
-                  </div>
+          <div className="kpi-value">{fmt(data.total_sell ?? 0)}</div>
+          <div className="kpi-trend">
+            <span className="kpi-trend-badge">+ 8%</span>
+            Depuis le mois dernier
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div className="kpi-title">Total Achats</div>
+            <div className="kpi-icon-wrapper"><ArrowUpRight size={16} color="var(--text-primary)" /></div>
+          </div>
+          <div className="kpi-value">{fmt(data.total_buy ?? 0)}</div>
+          <div className="kpi-trend">
+            <span className="kpi-trend-badge">+ 5%</span>
+            Depuis le mois dernier
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div className="kpi-title">Total Charges</div>
+            <div className="kpi-icon-wrapper"><ArrowUpRight size={16} color="var(--text-primary)" /></div>
+          </div>
+          <div className="kpi-value">{fmt(data.total_charges ?? 0)}</div>
+          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>
+            À surveiller
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid-2">
+        {/* Main Chart */}
+        <div className="widget-card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="widget-header">
+            <div className="widget-title">Évolution Commerciale (Semaine)</div>
+            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>Voir plus</button>
+          </div>
+          <div style={{ flex: 1, minHeight: '220px', position: 'relative' }}>
+            <Bar data={chartData} options={chartOptions} />
+          </div>
+        </div>
+
+        {/* Planning / Reminder */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <div className="widget-title">Rendez-vous Client</div>
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>Visite - Peugeot 3008</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Heure : 14:00 - 15:30</p>
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%' }}>
+            <Video size={16} /> Lancer la Visio
+          </button>
+        </div>
+      </div>
+
+      <div className="dashboard-grid-2">
+        {/* Prochains entretiens (Tasks) */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <div className="widget-title">Prochains Entretiens</div>
+            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px' }}><Plus size={14}/> Ajouter</button>
+          </div>
+          
+          <div className="task-list">
+            <div className="task-item">
+              <div className="task-info">
+                <div className="task-icon"><Wrench size={20} color="var(--accent-primary)"/></div>
+                <div>
+                  <div className="task-title">Vidange Complète - Renault Clio 4</div>
+                  <div className="task-date">Prévu le : 26 Nov, 2026</div>
                 </div>
-              ))
-            ) : (
-              <div className="empty-state">Aucun véhicule vendu pour l'instant.</div>
-            )}
+              </div>
+              <span className="badge badge-todo">À Faire</span>
+            </div>
+
+            <div className="task-item">
+              <div className="task-info">
+                <div className="task-icon"><Car size={20} color="var(--accent-primary)"/></div>
+                <div>
+                  <div className="task-title">Contrôle Technique - VW Golf 8</div>
+                  <div className="task-date">Prévu le : 28 Nov, 2026</div>
+                </div>
+              </div>
+              <span className="badge badge-in-progress">En Cours</span>
+            </div>
+
+            <div className="task-item">
+              <div className="task-info">
+                <div className="task-icon"><FileText size={20} color="var(--accent-primary)"/></div>
+                <div>
+                  <div className="task-title">Récupération Carte Grise - Audi A3</div>
+                  <div className="task-date">Prévu le : 30 Nov, 2026</div>
+                </div>
+              </div>
+              <span className="badge badge-done">Terminé</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Project Progress (Top Vehicles Mocked as Progress) */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <div className="widget-title">Performance Flotte</div>
+          </div>
+          <div style={{ textAlign: 'center', margin: '30px 0' }}>
+            <div style={{ 
+              width: '160px', 
+              height: '160px', 
+              borderRadius: '50%', 
+              border: '16px solid var(--accent-primary)',
+              borderRightColor: 'var(--bg-main)',
+              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column'
+            }}>
+              <span style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)' }}>75%</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rentabilité</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-primary)' }}></div> Haute</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-main)' }}></div> Basse</div>
           </div>
         </div>
       </div>

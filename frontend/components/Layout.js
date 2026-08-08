@@ -1,98 +1,106 @@
 import Link from 'next/link'
-import { useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import ChatBubble from './ChatBubble'
+import { 
+  LayoutDashboard, 
+  Car, 
+  Briefcase, 
+  FileText, 
+  Wrench, 
+  Calendar,
+  Search,
+  Bell,
+  CheckCircle2,
+  LogOut
+} from 'lucide-react'
 
 const navLinks = [
-  { href: '/app/dashboard', icon: '📊', label: 'Dashboard' },
-  { href: '/app/vehicles',  icon: '🚗', label: 'Véhicules' },
-  { href: '/app/documents', icon: '📎', label: 'Documents' },
-  { href: '/app/ai',        icon: '🤖', label: 'Assistant IA' },
+  { href: '/app/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
+  { href: '/app/vehicles',  icon: Car,             label: 'Flotte' },
+  { href: '#',              icon: Briefcase,       label: 'Commercial' },
+  { href: '/app/documents', icon: FileText,        label: 'Administratif' },
+  { href: '#',              icon: Wrench,          label: 'Entretien' },
+  { href: '#',              icon: Calendar,        label: 'Planning' },
 ]
 
 export default function Layout({ children, title = 'Dash Auto' }) {
   const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const handleLogout = () => {
+    // Supprimer le cookie côté client et rediriger
+    document.cookie = 'dash_auto_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+    router.push('/login')
+  }
 
   return (
     <>
       <Head>
         <title>{`${title} — Dash Auto`}</title>
-        <meta name="description" content="Dashboard de gestion achat-revente véhicules" />
       </Head>
       <div className="app-layout">
-
-        {/* ── Overlay mobile ──────────────────────── */}
-        {sidebarOpen && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            style={{
-              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
-              zIndex: 150, backdropFilter: 'blur(2px)',
-            }}
-          />
-        )}
-
+        
         {/* ── Sidebar ─────────────────────────────── */}
-        <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-          <Link href="/" className="sidebar-logo" onClick={() => setSidebarOpen(false)}>
-            <div className="sidebar-logo-icon">🚘</div>
-            <div className="sidebar-logo-text">
-              Dash<span>Auto</span>
+        <aside className="sidebar">
+          <Link href="/app/dashboard" className="sidebar-logo">
+            <div className="sidebar-logo-icon">
+              <CheckCircle2 size={20} strokeWidth={2.5} />
             </div>
+            <div className="sidebar-logo-text">DashAuto</div>
           </Link>
 
-          <div className="sidebar-section">
-            <div className="sidebar-section-label">Navigation</div>
-            <nav className="sidebar-nav">
-              {navLinks.map(({ href, icon, label }) => (
+          <div className="sidebar-section-label">MENU</div>
+          <nav className="sidebar-nav">
+            {navLinks.map(({ href, icon: Icon, label }) => {
+              const isActive = href !== '#' && router.pathname.startsWith(href)
+              return (
                 <Link
-                  key={href}
+                  key={label}
                   href={href}
-                  className={`sidebar-link ${router.pathname.startsWith(href) ? 'active' : ''}`}
-                  onClick={() => setSidebarOpen(false)}
+                  className={`sidebar-link ${isActive ? 'active' : ''}`}
                 >
-                  <span className="nav-icon">{icon}</span>
+                  <span className="nav-icon"><Icon size={18} /></span>
                   <span>{label}</span>
                 </Link>
-              ))}
-            </nav>
-          </div>
+              )
+            })}
+          </nav>
 
-          {/* Sidebar footer — user info */}
-          <div className="sidebar-footer">
-            <div className="sidebar-avatar">DA</div>
-            <div className="sidebar-footer-info">
-              <div className="sidebar-footer-name">Mon Compte</div>
-              <div className="sidebar-footer-role">Gestionnaire</div>
-            </div>
-          </div>
+          <div className="sidebar-section-label" style={{ marginTop: '30px' }}>GÉNÉRAL</div>
+          <nav className="sidebar-nav">
+            <button 
+              onClick={handleLogout} 
+              className="sidebar-link" 
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
+            >
+              <span className="nav-icon"><LogOut size={18} /></span>
+              <span>Déconnexion</span>
+            </button>
+          </nav>
+
         </aside>
 
-        {/* ── Main ────────────────────────────────── */}
+        {/* ── Main Content ────────────────────────── */}
         <main className="main-content">
-
-          {/* Topbar */}
           <header className="topbar">
-            {/* Hamburger (mobile) */}
-            <button
-              className="topbar-icon-btn"
-              onClick={() => setSidebarOpen(s => !s)}
-              aria-label="Menu"
-              style={{ display: 'none' }}
-              id="hamburger-btn"
-            >
-              ☰
-            </button>
-
-            <div className="topbar-title">
-              {title}
+            <div className="search-bar-global">
+              <Search size={18} color="var(--text-muted)" />
+              <input type="text" placeholder="Rechercher un véhicule, un contrat..." />
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
+                ⌘ F
+              </div>
             </div>
 
             <div className="topbar-actions">
-              <div className="topbar-avatar" title="Mon compte">
-                DA
+              <button className="topbar-btn">
+                <Bell size={18} />
+              </button>
+              
+              <div className="topbar-profile">
+                <div className="profile-info">
+                  <span className="profile-name">Mon Compte</span>
+                  <span className="profile-role">Gestionnaire</span>
+                </div>
+                <div className="profile-avatar">DA</div>
               </div>
             </div>
           </header>
@@ -100,15 +108,7 @@ export default function Layout({ children, title = 'Dash Auto' }) {
           {children}
         </main>
 
-        <ChatBubble />
       </div>
-
-      {/* Hamburger CSS visibility */}
-      <style jsx global>{`
-        @media (max-width: 900px) {
-          #hamburger-btn { display: flex !important; }
-        }
-      `}</style>
     </>
   )
 }
