@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import ChatBubble from './ChatBubble'
@@ -12,6 +13,7 @@ const navLinks = [
 
 export default function Layout({ children, title = 'Dash Auto' }) {
   const router = useRouter()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <>
@@ -20,9 +22,21 @@ export default function Layout({ children, title = 'Dash Auto' }) {
         <meta name="description" content="Dashboard de gestion achat-revente véhicules" />
       </Head>
       <div className="app-layout">
+
+        {/* ── Overlay mobile ──────────────────────── */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+              zIndex: 150, backdropFilter: 'blur(2px)',
+            }}
+          />
+        )}
+
         {/* ── Sidebar ─────────────────────────────── */}
-        <aside className="sidebar">
-          <Link href="/" className="sidebar-logo">
+        <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+          <Link href="/" className="sidebar-logo" onClick={() => setSidebarOpen(false)}>
             <div className="sidebar-logo-icon">🚘</div>
             <div className="sidebar-logo-text">
               Dash<span>Auto</span>
@@ -37,6 +51,7 @@ export default function Layout({ children, title = 'Dash Auto' }) {
                   key={href}
                   href={href}
                   className={`sidebar-link ${router.pathname.startsWith(href) ? 'active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <span className="nav-icon">{icon}</span>
                   <span>{label}</span>
@@ -45,31 +60,55 @@ export default function Layout({ children, title = 'Dash Auto' }) {
             </nav>
           </div>
 
-          <div style={{ marginTop: 'auto', padding: '0 20px' }}>
-            <div style={{
-              padding: '12px',
-              background: 'rgba(108,99,255,.08)',
-              borderRadius: '10px',
-              border: '1px solid rgba(108,99,255,.15)',
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              lineHeight: 1.5,
-            }}>
-              <div style={{ color: 'var(--accent)', fontWeight: 600, marginBottom: 4 }}>
-                🟢 Backend connecté
-              </div>
-              localhost:8000
+          {/* Sidebar footer — user info */}
+          <div className="sidebar-footer">
+            <div className="sidebar-avatar">DA</div>
+            <div className="sidebar-footer-info">
+              <div className="sidebar-footer-name">Mon Compte</div>
+              <div className="sidebar-footer-role">Gestionnaire</div>
             </div>
           </div>
         </aside>
 
         {/* ── Main ────────────────────────────────── */}
         <main className="main-content">
+
+          {/* Topbar */}
+          <header className="topbar">
+            {/* Hamburger (mobile) */}
+            <button
+              className="topbar-icon-btn"
+              onClick={() => setSidebarOpen(s => !s)}
+              aria-label="Menu"
+              style={{ display: 'none' }}
+              id="hamburger-btn"
+            >
+              ☰
+            </button>
+
+            <div className="topbar-title">
+              {title}
+            </div>
+
+            <div className="topbar-actions">
+              <div className="topbar-avatar" title="Mon compte">
+                DA
+              </div>
+            </div>
+          </header>
+
           {children}
         </main>
 
         <ChatBubble />
       </div>
+
+      {/* Hamburger CSS visibility */}
+      <style jsx global>{`
+        @media (max-width: 900px) {
+          #hamburger-btn { display: flex !important; }
+        }
+      `}</style>
     </>
   )
 }
