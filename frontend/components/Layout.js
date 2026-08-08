@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import { supabase } from '../lib/supabase'
+import { Toaster, toast } from 'react-hot-toast'
 import { 
   LayoutDashboard, 
   Car, 
@@ -23,10 +25,19 @@ const navLinks = [
 export default function Layout({ children, title = 'Dash Auto' }) {
   const router = useRouter()
 
-  const handleLogout = () => {
-    // Supprimer le cookie côté client et rediriger
-    document.cookie = 'dash_auto_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
-    router.push('/login')
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      
+      // Supprimer le cookie côté client au cas où l'ancienne méthode était utilisée
+      document.cookie = 'dash_auto_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+      toast.success('Déconnexion réussie')
+      router.push('/login')
+    } catch (error) {
+      console.error('Erreur déconnexion:', error)
+      toast.error('Erreur lors de la déconnexion')
+    }
   }
 
   return (
@@ -34,6 +45,7 @@ export default function Layout({ children, title = 'Dash Auto' }) {
       <Head>
         <title>{`${title} — Dash Auto`}</title>
       </Head>
+      <Toaster position="top-right" />
       <div className="app-layout">
         
         {/* ── Sidebar ─────────────────────────────── */}

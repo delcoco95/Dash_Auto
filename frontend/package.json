@@ -8,12 +8,16 @@
     "start": "next start -p 3000"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.2",
     "chart.js": "^4.4.0",
+    "date-fns": "^4.4.0",
     "lucide-react": "^1.30.0",
     "next": "13.5.4",
     "react": "18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "18.2.0",
-    "swr": "^2.2.0"
+    "react-hot-toast": "^2.6.0",
+    "swr": "^2.2.0",
+    "xlsx": "^0.18.5"
   }
 }
