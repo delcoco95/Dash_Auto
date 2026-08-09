@@ -688,7 +688,7 @@ export default function VehicleDetail() {
                             {d.expiration_date && <span style={{ fontSize: 11, color: 'var(--danger)' }}>Exp: {fmtDate(d.expiration_date)}</span>}
                           </div>
                         </div>
-                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}></button>
+                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}>🗑️</button>
                       </div>
                     )
                   })}

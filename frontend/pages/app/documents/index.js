@@ -243,7 +243,7 @@ export default function DocumentsGlobal() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="btn-icon danger" onClick={() => deleteDoc(d.id)} title="Supprimer"></button>
+                          <button className="btn-icon danger" onClick={() => deleteDoc(d.id)} title="Supprimer">🗑️</button>
                         </td>
                       </tr>
                     )
