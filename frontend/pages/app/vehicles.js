@@ -180,7 +180,7 @@ export default function Vehicles() {
                         {v.main_image_url ? (
                           <div style={{
                             width: 50, height: 50, borderRadius: '6px', overflow: 'hidden',
-                            backgroundImage: `url(${API_URL}${v.main_image_url})`,
+                            backgroundImage: `url(${v.main_image_url.startsWith('http') ? v.main_image_url : `${API_URL}${v.main_image_url}`})`,
                             backgroundSize: 'cover', backgroundPosition: 'center', margin: '0 auto'
                           }} />
                         ) : (
