@@ -8,6 +8,7 @@ load_dotenv()
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from . import ai_agent, auth, crud, schemas, statistics
 from .database import get_db, init_db
