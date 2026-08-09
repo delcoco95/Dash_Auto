@@ -135,14 +135,14 @@ export default function CalendarModal({ events, vehicles, onClose, onAddEvent, o
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '90%', maxWidth: '1000px', borderRadius: '12px', padding: '24px', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '90%', maxWidth: '1000px', borderRadius: '12px', padding: '24px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700 }}>Planning Interactif</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
         </div>
 
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
           <Calendar
             localizer={localizer}
             events={calendarEvents}

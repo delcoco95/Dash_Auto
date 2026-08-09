@@ -92,24 +92,10 @@ export default function Layout({ children, title = 'Dash Auto' }) {
         <main className="main-content">
           <header className="topbar">
             <div className="search-bar-global">
-              <Search size={18} color="var(--text-muted)" />
+              <Search size={18} className="search-icon" />
               <input type="text" placeholder="Rechercher un véhicule, un contrat..." />
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
                 ⌘ F
-              </div>
-            </div>
-
-            <div className="topbar-actions">
-              <button className="topbar-btn">
-                <Bell size={18} />
-              </button>
-              
-              <div className="topbar-profile">
-                <div className="profile-info">
-                  <span className="profile-name">Mon Compte</span>
-                  <span className="profile-role">Gestionnaire</span>
-                </div>
-                <div className="profile-avatar">DA</div>
               </div>
             </div>
           </header>

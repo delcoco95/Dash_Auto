@@ -193,6 +193,19 @@ def upload_vehicle_image(
     )
     return crud.create_vehicle_image(db, image_data)
 
+class ImageUrlPayload(BaseModel):
+    url: str
+    description: Optional[str] = None
+
+@app.post("/vehicles/{vehicle_id}/images/url", response_model=schemas.VehicleImageRead, status_code=201)
+def add_vehicle_image_url(vehicle_id: int, payload: ImageUrlPayload, db=Depends(get_db)):
+    image_data = schemas.VehicleImageCreate(
+        vehicle_id=vehicle_id,
+        url=payload.url,
+        description=payload.description
+    )
+    return crud.create_vehicle_image(db, image_data)
+
 
 @app.get("/vehicles/{vehicle_id}/images", response_model=List[schemas.VehicleImageRead])
 def get_vehicle_images(vehicle_id: int, db=Depends(get_db)):

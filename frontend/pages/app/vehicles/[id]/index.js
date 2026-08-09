@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../../components/Layout'
+import { supabase } from '../../../../lib/supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -122,12 +123,39 @@ export default function VehicleDetail() {
   const handleImageUpload = async (file) => {
     if (!file) return
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
     
-    const res = await fetch(`${API_URL}/vehicles/${id}/images`, { method: 'POST', body: formData })
-    if (res.ok) { mutImg(); toast('Image ajoutée') }
-    else toast('Erreur upload (jpg/png/webp)', 'error')
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `${id}/${fileName}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath)
+
+      const payload = { url: publicUrl, description: '' }
+      
+      const res = await fetch(`${API_URL}/vehicles/${id}/images/url`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) { mutImg(); toast('Image ajoutée') }
+      else toast('Erreur ajout DB', 'error')
+    } catch (err) {
+      console.error(err)
+      toast('Erreur upload Supabase', 'error')
+    }
+    
     setUploading(false)
   }
 
@@ -146,24 +174,55 @@ export default function VehicleDetail() {
   const handleDocUpload = async (file) => {
     if (!file) return
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    if (docForm.category) formData.append('category', docForm.category)
-    if (docForm.name) formData.append('name', docForm.name)
-    if (docForm.description) formData.append('description', docForm.description)
-    if (docForm.date) formData.append('doc_date', docForm.date)
-    if (docForm.expiration_date) formData.append('expiration_date', docForm.expiration_date)
-    if (docForm.amount) formData.append('amount', docForm.amount)
-    formData.append('status', docForm.status)
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `${id}/${fileName}`
 
-    const url = `${API_URL}/documents/upload?vehicle_id=${id}`
-    const res = await fetch(url, { method: 'POST', body: formData })
-    if (res.ok) { 
-      mutD()
-      toast('Document ajouté')
-      setDocForm({ category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath)
+
+      const payload = {
+        vehicle_id: parseInt(id),
+        category: docForm.category || null,
+        name: docForm.name || file.name,
+        description: docForm.description || null,
+        doc_date: docForm.date || null,
+        expiration_date: docForm.expiration_date || null,
+        amount: docForm.amount ? parseFloat(docForm.amount) : null,
+        status: docForm.status || 'valide',
+        url: publicUrl,
+        type: file.type || "application/octet-stream"
+      }
+
+      const res = await fetch(`${API_URL}/documents/url`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload) 
+      })
+
+      if (res.ok) { 
+        mutD()
+        toast('Document ajouté')
+        setDocForm({ category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
+      } else {
+        toast('Erreur ajout DB', 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      toast('Erreur upload Supabase', 'error')
     }
-    else toast('Erreur upload (max 10 MB)', 'error')
+    
     setUploading(false)
   }
 

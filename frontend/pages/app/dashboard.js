@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import useSWR, { useSWRConfig } from 'swr'
 import Layout from '../../components/Layout'
 import CalendarModal from '../../components/CalendarModal'
@@ -95,6 +96,52 @@ export default function Dashboard() {
       // toast success handled globally or silently here, react-hot-toast should be available but not imported
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  const fileInputRef = useRef(null)
+  const [isImporting, setIsImporting] = useState(false)
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsImporting(true)
+    try {
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const json = XLSX.utils.sheet_to_json(worksheet)
+
+      // Assuming Excel columns: Marque, Modèle, Immatriculation, Prix Achat, Prix Vente, Statut
+      let importedCount = 0
+      for (const row of json) {
+        const payload = {
+          brand: row['Marque'] || row['brand'] || 'Inconnu',
+          model: row['Modèle'] || row['model'] || 'Inconnu',
+          registration: row['Immatriculation'] || row['registration'] || null,
+          price_buy: row['Prix Achat'] || row['price_buy'] ? parseFloat(row['Prix Achat'] || row['price_buy']) : null,
+          price_sell: row['Prix Vente'] || row['price_sell'] ? parseFloat(row['Prix Vente'] || row['price_sell']) : null,
+          status: row['Statut'] || row['status'] || 'en stock',
+        }
+        await fetch(`${API_URL}/vehicles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        importedCount++
+      }
+      
+      mutate(`${API_URL}/vehicles`)
+      mutate(`${API_URL}/stats`)
+      if (typeof toast !== 'undefined') toast.success(`${importedCount} véhicules importés !`)
+    } catch (err) {
+      console.error(err)
+      if (typeof toast !== 'undefined') toast.error("Erreur lors de l'import")
+    } finally {
+      setIsImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -210,8 +257,20 @@ export default function Dashboard() {
           <p className="page-subtitle">Gérez et optimisez votre flotte automobile avec simplicité.</p>
         </div>
         <div>
-          <button className="btn btn-outline" style={{ marginRight: '10px' }}>
-            Importer Données
+          <input 
+            type="file" 
+            accept=".xlsx, .xls, .csv" 
+            style={{ display: 'none' }} 
+            ref={fileInputRef} 
+            onChange={handleImportExcel}
+          />
+          <button 
+            className="btn btn-outline" 
+            style={{ marginRight: '10px' }} 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            {isImporting ? 'Importation...' : 'Importer Données'}
           </button>
           <button className="btn btn-primary">
             <Plus size={16} /> Nouveau Véhicule

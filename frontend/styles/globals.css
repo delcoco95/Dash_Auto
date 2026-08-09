@@ -873,3 +873,13 @@ ul { list-style: none; }
     grid-template-columns: 1fr;
   }
 }
+
+.search-icon {
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.search-bar-global:hover .search-icon,
+.search-icon:hover {
+  color: var(--accent-primary) !important;
+}
