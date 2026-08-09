@@ -502,8 +502,8 @@ export default function VehicleDetail() {
                       border: img.is_main ? '2px solid var(--primary)' : '1px solid var(--border)',
                       boxShadow: img.is_main ? '0 0 10px rgba(108,99,255,0.3)' : 'none'
                     }}>
-                      <a href={`${API_URL}${img.url}`} target="_blank" rel="noreferrer">
-                        <img src={`${API_URL}${img.url}`} style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }} />
+                      <a href={img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`} target="_blank" rel="noreferrer">
+                        <img src={img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`} style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }} />
                       </a>
                       
                       {img.is_main && (
@@ -521,7 +521,7 @@ export default function VehicleDetail() {
                         )}
                         <button onClick={() => deleteImage(img.id)} title="Supprimer"
                           style={{ background: 'rgba(255,77,109,0.8)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px 6px' }}>
-                          
+                          🗑️
                         </button>
                       </div>
                     </div>
@@ -677,7 +677,7 @@ export default function VehicleDetail() {
                     const icon = docIcon(d.type)
                     return (
                       <div className="doc-item" key={d.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <a href={`${API_URL}${d.url}`} target="_blank" rel="noreferrer">
+                        <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer">
                           <div className="doc-icon-preview" style={{ height: 60, width: 60 }}>{icon}</div>
                         </a>
                         <div className="doc-info" style={{ flex: 1 }}>

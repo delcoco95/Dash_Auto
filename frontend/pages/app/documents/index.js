@@ -208,12 +208,12 @@ export default function DocumentsGlobal() {
                     return (
                       <tr key={d.id} className={expired ? 'row-danger' : expiring ? 'row-warning' : ''}>
                         <td style={{ fontSize: 20, textAlign: 'center' }}>
-                          <a href={`${API_URL}${d.url}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                          <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                             {docIcon(d.type)}
                           </a>
                         </td>
                         <td>
-                          <a href={`${API_URL}${d.url}`} target="_blank" rel="noreferrer" className="doc-link-main">
+                          <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer" className="doc-link-main">
                             {d.name}
                           </a>
                           {d.description && <div className="doc-desc-sub">{d.description}</div>}
