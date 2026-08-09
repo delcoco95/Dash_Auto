@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
@@ -13,7 +14,9 @@ import {
   Search,
   Bell,
   CheckCircle2,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react'
 
 const navLinks = [
@@ -24,6 +27,14 @@ const navLinks = [
 
 export default function Layout({ children, title = 'Dash Auto' }) {
   const router = useRouter()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Close sidebar on route change for mobile
+  useEffect(() => {
+    const handleRouteChange = () => setIsSidebarOpen(false)
+    router.events.on('routeChangeComplete', handleRouteChange)
+    return () => router.events.off('routeChangeComplete', handleRouteChange)
+  }, [router.events])
 
   const handleLogout = async () => {
     try {
@@ -48,14 +59,28 @@ export default function Layout({ children, title = 'Dash Auto' }) {
       <Toaster position="top-right" />
       <div className="app-layout">
         
+        {/* Overlay for mobile sidebar */}
+        {isSidebarOpen && (
+          <div 
+            className="sidebar-overlay" 
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 }}
+          />
+        )}
+
         {/* ── Sidebar ─────────────────────────────── */}
-        <aside className="sidebar">
-          <Link href="/app/dashboard" className="sidebar-logo">
-            <div className="sidebar-logo-icon">
-              <CheckCircle2 size={20} strokeWidth={2.5} />
-            </div>
-            <div className="sidebar-logo-text">DashAuto</div>
-          </Link>
+        <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+            <Link href="/app/dashboard" className="sidebar-logo" style={{ marginBottom: 0 }}>
+              <div className="sidebar-logo-icon">
+                <CheckCircle2 size={20} strokeWidth={2.5} />
+              </div>
+              <div className="sidebar-logo-text">DashAuto</div>
+            </Link>
+            <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(false)} style={{ background: 'var(--bg-main)', borderRadius: '8px' }}>
+              <X size={20} />
+            </button>
+          </div>
 
           <div className="sidebar-section-label">MENU</div>
           <nav className="sidebar-nav">
@@ -91,11 +116,16 @@ export default function Layout({ children, title = 'Dash Auto' }) {
         {/* ── Main Content ────────────────────────── */}
         <main className="main-content">
           <header className="topbar">
-            <div className="search-bar-global">
-              <Search size={18} className="search-icon" />
-              <input type="text" placeholder="Rechercher un véhicule, un contrat..." />
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
-                ⌘ F
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+              <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                <Menu size={24} />
+              </button>
+              <div className="search-bar-global">
+                <Search size={18} className="search-icon" />
+                <input type="text" placeholder="Rechercher un véhicule, un contrat..." />
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
+                  ⌘ F
+                </div>
               </div>
             </div>
           </header>
