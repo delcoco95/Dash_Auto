@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+import datetime
 from .database import Base
 
 
@@ -54,6 +55,7 @@ class Vehicle(Base):
     charges = relationship('Charge', back_populates='vehicle', cascade='all, delete-orphan')
     interventions = relationship('Intervention', back_populates='vehicle', cascade='all, delete-orphan')
     images = relationship('VehicleImage', back_populates='vehicle', cascade='all, delete-orphan')
+    events = relationship('Event', back_populates='vehicle', cascade='all, delete-orphan')
 
     @property
     def main_image_url(self):

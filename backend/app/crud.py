@@ -311,3 +311,71 @@ def delete_document(db: Session, document_id: int, upload_dir: str) -> bool:
     db.commit()
     return True
 
+# ══════════════════════════════════════════════════════════════
+# EVENTS
+# ══════════════════════════════════════════════════════════════
+
+def get_events(db: Session, skip: int = 0, limit: int = 200, start_date: str = None, end_date: str = None):
+    query = db.query(models.Event)
+    if start_date:
+        query = query.filter(models.Event.start_time >= start_date)
+    if end_date:
+        query = query.filter(models.Event.end_time <= end_date)
+    return query.offset(skip).limit(limit).all()
+
+def create_event(db: Session, event: schemas.EventCreate):
+    e = models.Event(**event.model_dump())
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return e
+
+def update_event(db: Session, event_id: int, event: schemas.EventUpdate):
+    e = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not e:
+        return None
+    for key, val in event.model_dump(exclude_unset=True).items():
+        setattr(e, key, val)
+    db.commit()
+    db.refresh(e)
+    return e
+
+def delete_event(db: Session, event_id: int):
+    e = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not e:
+        return False
+    db.delete(e)
+    db.commit()
+    return True
+
+# ══════════════════════════════════════════════════════════════
+# INTERVENTIONS
+# ══════════════════════════════════════════════════════════════
+
+def get_interventions(db: Session, skip: int = 0, limit: int = 200):
+    return db.query(models.Intervention).offset(skip).limit(limit).all()
+
+def create_intervention(db: Session, intervention: schemas.InterventionCreate):
+    i = models.Intervention(**intervention.model_dump())
+    db.add(i)
+    db.commit()
+    db.refresh(i)
+    return i
+
+def update_intervention(db: Session, intervention_id: int, intervention: schemas.InterventionUpdate):
+    i = db.query(models.Intervention).filter(models.Intervention.id == intervention_id).first()
+    if not i:
+        return None
+    for key, val in intervention.model_dump(exclude_unset=True).items():
+        setattr(i, key, val)
+    db.commit()
+    db.refresh(i)
+    return i
+
+def delete_intervention(db: Session, intervention_id: int):
+    i = db.query(models.Intervention).filter(models.Intervention.id == intervention_id).first()
+    if not i:
+        return False
+    db.delete(i)
+    db.commit()
+    return True
