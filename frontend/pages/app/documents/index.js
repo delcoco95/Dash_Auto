@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../components/Layout'
+import { Plus, X } from 'lucide-react'
+import { supabase } from '../../../lib/supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -18,6 +20,12 @@ export default function DocumentsGlobal() {
   const [status, setStatus] = useState('')
   const [vehicleFilter, setVehicleFilter] = useState('')
   const [sort, setSort] = useState('created_desc')
+
+  // Upload Modal State
+  const [showModal, setShowModal] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [docForm, setDocForm] = useState({ vehicle_id: '', category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
+  const fileRef = useRef()
 
   // Build query
   const params = new URLSearchParams()
@@ -61,11 +69,72 @@ export default function DocumentsGlobal() {
     return new Date(expDate) < new Date()
   }
 
+  const handleDocUpload = async (file) => {
+    if (!file) return
+    setUploading(true)
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `global/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath)
+
+      const payload = {
+        vehicle_id: docForm.vehicle_id ? parseInt(docForm.vehicle_id) : null,
+        category: docForm.category || null,
+        name: docForm.name || file.name,
+        description: docForm.description || null,
+        doc_date: docForm.date || null,
+        expiration_date: docForm.expiration_date || null,
+        amount: docForm.amount ? parseFloat(docForm.amount) : null,
+        status: docForm.status || 'valide',
+        url: publicUrl,
+        type: file.type || "application/octet-stream"
+      }
+
+      const res = await fetch(`${API_URL}/documents/url`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload) 
+      })
+
+      if (res.ok) { 
+        mutate()
+        setShowModal(false)
+        setDocForm({ vehicle_id: '', category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
+        alert('Document ajouté !')
+      } else {
+        alert('Erreur lors de l\'ajout en base.')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Erreur lors de l\'upload Supabase.')
+    }
+    
+    setUploading(false)
+  }
+
   return (
     <Layout title="Tous les Documents">
       <div className="page-header">
-        <h1 className="page-title"> Documents centralisés</h1>
-        <p className="page-subtitle">Gérez toutes les factures, contrats et documents administratifs du parc.</p>
+        <div>
+          <h1 className="page-title"> Documents centralisés</h1>
+          <p className="page-subtitle">Gérez toutes les factures, contrats et documents administratifs du parc.</p>
+        </div>
+        <div>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={16} /> Ajouter un document
+          </button>
+        </div>
       </div>
 
       <div className="page-body">
@@ -185,6 +254,71 @@ export default function DocumentsGlobal() {
           </div>
         )}
       </div>
+
+      {/* ── Modal d'Ajout de Document ── */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => !uploading && setShowModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '90%', maxWidth: '600px', borderRadius: '12px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Ajouter un document</h2>
+              <button onClick={() => !uploading && setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+
+            <div className="form-grid-2" style={{ marginBottom: 16 }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Nom du document</label>
+                <input className="form-input" placeholder="Laisser vide pour utiliser le nom du fichier" value={docForm.name} onChange={e => setDocForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Véhicule lié</label>
+                <select className="form-input" value={docForm.vehicle_id} onChange={e => setDocForm(p => ({ ...p, vehicle_id: e.target.value }))}>
+                  <option value="">Aucun (Document général)</option>
+                  {vehicles?.map(v => (
+                    <option key={v.id} value={v.id}>{v.registration || `${v.brand} ${v.model}`}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Catégorie</label>
+                <select className="form-input" value={docForm.category} onChange={e => setDocForm(p => ({ ...p, category: e.target.value }))}>
+                  <option value="">— Sélectionner —</option>
+                  {DOC_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date du document</label>
+                <input type="date" className="form-input" value={docForm.date} onChange={e => setDocForm(p => ({ ...p, date: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date d'expiration</label>
+                <input type="date" className="form-input" value={docForm.expiration_date} onChange={e => setDocForm(p => ({ ...p, expiration_date: e.target.value }))} />
+              </div>
+            </div>
+            
+            <div
+              className={`upload-zone${uploading ? ' drag-over' : ''}`}
+              onClick={() => !uploading && fileRef.current?.click()}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); handleDocUpload(e.dataTransfer.files[0]) }}
+              style={{
+                border: '2px dashed var(--border-strong)', borderRadius: 12, padding: 30, textAlign: 'center', cursor: 'pointer',
+                background: uploading ? 'var(--bg-main)' : 'transparent', transition: 'all 0.2s', marginBottom: 20
+              }}
+            >
+              <input type="file" style={{ display: 'none' }} ref={fileRef} onChange={e => handleDocUpload(e.target.files[0])} />
+              {uploading ? (
+                <div style={{ color: 'var(--accent)', fontWeight: 600 }}>Envoi vers Supabase...</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}></div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Cliquez ou glissez un fichier ici</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>PDF, Images, Word, Excel (max 10MB)</div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
