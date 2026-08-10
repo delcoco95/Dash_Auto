@@ -764,11 +764,13 @@ ul { list-style: none; }
 
 .vehicles-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 900px;
 }
 
 .data-table th {
