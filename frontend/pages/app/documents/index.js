@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../components/Layout'
+import FilePreviewModal from '../../../components/FilePreviewModal'
 import { Plus, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 
@@ -18,6 +19,7 @@ export default function DocumentsGlobal() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [status, setStatus] = useState('')
+  const [previewFile, setPreviewFile] = useState(null)
   const [vehicleFilter, setVehicleFilter] = useState('')
   const [sort, setSort] = useState('created_desc')
 
@@ -208,14 +210,14 @@ export default function DocumentsGlobal() {
                     return (
                       <tr key={d.id} className={expired ? 'row-danger' : expiring ? 'row-warning' : ''}>
                         <td style={{ fontSize: 20, textAlign: 'center' }}>
-                          <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                          <span onClick={() => setPreviewFile({ url: d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`, name: d.name, type: d.type })} style={{ cursor: 'pointer' }}>
                             {docIcon(d.type)}
-                          </a>
+                          </span>
                         </td>
                         <td>
-                          <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer" className="doc-link-main">
+                          <span onClick={() => setPreviewFile({ url: d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`, name: d.name, type: d.type })} className="doc-link-main" style={{ cursor: 'pointer' }}>
                             {d.name}
-                          </a>
+                          </span>
                           {d.description && <div className="doc-desc-sub">{d.description}</div>}
                         </td>
                         <td>
@@ -319,6 +321,8 @@ export default function DocumentsGlobal() {
           </div>
         </div>
       )}
+
+      <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
     </Layout>
   )
 }

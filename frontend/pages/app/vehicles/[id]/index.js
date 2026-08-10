@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../../components/Layout'
+import FilePreviewModal from '../../../../components/FilePreviewModal'
 import { supabase } from '../../../../lib/supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -88,6 +89,7 @@ export default function VehicleDetail() {
   const [tab, setTab] = useState('info')
   const [toasts, setToasts] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [previewFile, setPreviewFile] = useState(null)
 
   // Data fetching
   const { data: vehicle, error: vErr, mutate: mutV } = useSWR(id ? `${API_URL}/vehicles/${id}` : null, fetcher)
@@ -502,9 +504,9 @@ export default function VehicleDetail() {
                       border: img.is_main ? '2px solid var(--primary)' : '1px solid var(--border)',
                       boxShadow: img.is_main ? '0 0 10px rgba(108,99,255,0.3)' : 'none'
                     }}>
-                      <a href={img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`} target="_blank" rel="noreferrer">
+                      <span onClick={() => setPreviewFile({ url: img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`, name: `Image ${img.id}`, type: 'image/jpeg' })} style={{ cursor: 'pointer' }}>
                         <img src={img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`} style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }} />
-                      </a>
+                      </span>
                       
                       {img.is_main && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: 11, fontWeight: 700 }}>
@@ -677,9 +679,9 @@ export default function VehicleDetail() {
                     const icon = docIcon(d.type)
                     return (
                       <div className="doc-item" key={d.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <a href={d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`} target="_blank" rel="noreferrer">
+                        <span onClick={() => setPreviewFile({ url: d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`, name: d.name, type: d.type })} style={{ cursor: 'pointer' }}>
                           <div className="doc-icon-preview" style={{ height: 60, width: 60 }}>{icon}</div>
-                        </a>
+                        </span>
                         <div className="doc-info" style={{ flex: 1 }}>
                           <div className="doc-name" title={d.name}>{d.name}</div>
                           <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
@@ -841,6 +843,7 @@ export default function VehicleDetail() {
         )}
 
       </div>
+      <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
     </Layout>
   )
 }
