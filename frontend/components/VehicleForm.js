@@ -2,7 +2,18 @@
  * VehicleForm — Formulaire complet d'ajout/modification de véhicule
  * Organisé en 4 onglets : Général, Financier, Technique, Notes
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/router'
+import { fmt } from '../lib/format'
+
+// Formate une immatriculation au format AA-123-AA au fil de la saisie (indicatif, non bloquant).
+function formatRegistration(raw) {
+  const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const letters1 = clean.slice(0, 2)
+  const digits = clean.slice(2, 5)
+  const letters2 = clean.slice(5, 7)
+  return [letters1, digits, letters2].filter(Boolean).join('-')
+}
 
 const TABS = [
   { id: 'general',   label: 'Général' },
@@ -54,8 +65,12 @@ function Select({ name, value, onChange, options, placeholder = '— Sélectionn
   )
 }
 
-export default function VehicleForm({ initialData = {}, onSubmit, loading, submitLabel = 'Enregistrer' }) {
+export default function VehicleForm({ initialData = {}, onSubmit, loading, submitLabel = 'Enregistrer', apiUrl, currentVehicleId = null }) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('general')
+  const [dirty, setDirty] = useState(false)
+  const [dupWarning, setDupWarning] = useState(null)
+  const debounceRef = useRef(null)
   const [form, setForm] = useState({
     // Général
     brand: '', model: '', version: '', year: '', registration: '', vin: '',
@@ -80,8 +95,32 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
+    setDirty(true)
+    setForm(prev => ({ ...prev, [name]: name === 'registration' ? formatRegistration(value) : value }))
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }))
+  }
+
+  // Vérification de doublon d'immatriculation en direct (requête différée, jamais bloquante).
+  useEffect(() => {
+    const reg = (form.registration || '').trim()
+    setDupWarning(null)
+    if (!apiUrl || reg.length < 4) return
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${apiUrl}/vehicles?search=${encodeURIComponent(reg)}`)
+        const list = await res.json()
+        const match = Array.isArray(list) && list.find(v => v.id !== currentVehicleId && (v.registration || '').toUpperCase() === reg.toUpperCase())
+        if (match) setDupWarning(`Cette immatriculation existe déjà : ${match.brand} ${match.model} (${match.status})`)
+      } catch { /* vérification best-effort */ }
+    }, 400)
+    return () => clearTimeout(debounceRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.registration, apiUrl, currentVehicleId])
+
+  const handleCancel = () => {
+    if (dirty && !window.confirm('Des modifications non enregistrées seront perdues. Quitter quand même ?')) return
+    router.push('/app/vehicles')
   }
 
   const validate = () => {
@@ -143,6 +182,31 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
         ))}
       </div>
 
+      {/* Résumé de marge — épinglé, visible depuis n'importe quel onglet */}
+      {form.price_buy && form.price_sell && (
+        <div style={{
+          display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+          padding: '14px 18px',
+          background: (parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
+            ? 'rgba(13,83,42,.06)' : 'rgba(224,49,49,.06)',
+          border: `1px solid ${(parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
+            ? 'rgba(13,83,42,.18)' : 'rgba(224,49,49,.18)'}`,
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 24,
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Marge brute estimée : </span>
+          <span style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: (parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
+              ? 'var(--success)' : 'var(--danger)',
+          }}>
+            {fmt(parseFloat(form.price_sell) - parseFloat(form.price_buy))}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(hors charges)</span>
+        </div>
+      )}
+
       {/* ══════════════ ONGLET GÉNÉRAL ══════════════ */}
       {activeTab === 'general' && (
         <>
@@ -158,8 +222,9 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
               <Field label="Version / Finition">
                 <Input name="version" value={form.version} onChange={handleChange} placeholder="Ex: Intens 130ch" />
               </Field>
-              <Field label="Immatriculation" hint="Format : AA-123-AA">
+              <Field label="Immatriculation" hint={dupWarning ? null : 'Format : AA-123-AA'}>
                 <Input name="registration" value={form.registration} onChange={handleChange} placeholder="AA-123-AA" />
+                {dupWarning && <span className="form-hint" style={{ color: 'var(--warning)' }}>{dupWarning}</span>}
               </Field>
               <Field label="Année">
                 <Input name="year" type="number" value={form.year} onChange={handleChange} placeholder="Ex: 2020" min="1900" />
@@ -237,30 +302,6 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
               </Field>
             </div>
           </div>
-
-          {/* Résumé profit si les deux prix sont renseignés */}
-          {form.price_buy && form.price_sell && (
-            <div style={{
-              padding: '16px 20px',
-              background: (parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
-                ? 'rgba(0,212,170,.08)' : 'rgba(255,77,109,.08)',
-              border: `1px solid ${(parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
-                ? 'rgba(0,212,170,.2)' : 'rgba(255,77,109,.2)'}`,
-              borderRadius: 'var(--radius-md)',
-              marginTop: 4,
-            }}>
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Marge brute : </span>
-              <span style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: (parseFloat(form.price_sell) - parseFloat(form.price_buy)) >= 0
-                  ? 'var(--success)' : 'var(--danger)',
-              }}>
-                {((parseFloat(form.price_sell) - parseFloat(form.price_buy))).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(hors charges)</span>
-            </div>
-          )}
         </>
       )}
 
@@ -375,7 +416,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
         borderTop: '1px solid var(--border)',
         marginTop: 8,
       }}>
-        <button type="button" className="btn btn-ghost" onClick={() => window.history.back()}>
+        <button type="button" className="btn btn-ghost" onClick={handleCancel}>
           Annuler
         </button>
         <button type="submit" className="btn btn-primary" disabled={loading}>

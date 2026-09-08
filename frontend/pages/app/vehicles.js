@@ -1,21 +1,13 @@
-import { useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../components/Layout'
 import { Search, AlertTriangle, Car } from 'lucide-react'
+import { fmt, fmtKm } from '../../lib/format'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
-
-function fmt(n) {
-  if (n == null) return '—'
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
-}
-function fmtKm(km) {
-  if (km == null) return '—'
-  return new Intl.NumberFormat('fr-FR').format(km) + ' km'
-}
 
 function StatusBadge({ status }) {
   if (!status) return null
@@ -34,6 +26,11 @@ export default function Vehicles() {
   const [status,  setStatus]  = useState('')
   const [fuel,    setFuel]    = useState('')
   const [sort,    setSort]    = useState('created_at')
+
+  // Reprend la recherche transmise par la barre globale (?search=...)
+  useEffect(() => {
+    if (typeof router.query.search === 'string') setSearch(router.query.search)
+  }, [router.query.search])
 
   // Build query string
   const params = new URLSearchParams()
@@ -197,23 +194,23 @@ export default function Vehicles() {
                         <div className="vehicle-brand">{v.brand} {v.model}</div>
                         {v.version && <div className="vehicle-model">{v.version}</div>}
                       </td>
-                      <td>
+                      <td data-label="Immat.">
                         {v.registration
                           ? <span className="vehicle-reg">{v.registration}</span>
                           : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
-                      <td className="muted">{v.year ?? '—'}</td>
-                      <td className="muted">{v.fuel ?? '—'}</td>
-                      <td className="muted">{fmtKm(v.km)}</td>
-                      <td>{fmt(v.price_buy)}</td>
-                      <td>
+                      <td className="muted" data-label="Année">{v.year ?? '—'}</td>
+                      <td className="muted" data-label="Énergie">{v.fuel ?? '—'}</td>
+                      <td className="muted" data-label="Km">{fmtKm(v.km)}</td>
+                      <td data-label="Achat">{fmt(v.price_buy)}</td>
+                      <td data-label="Vente">
                         {v.price_sell ? (
                           <span style={{ color: (v.price_sell - v.price_buy) >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                             {fmt(v.price_sell)}
                           </span>
                         ) : '—'}
                       </td>
-                      <td><StatusBadge status={v.status} /></td>
+                      <td data-label="Statut"><StatusBadge status={v.status} /></td>
                     </tr>
                   ))}
                 </tbody>

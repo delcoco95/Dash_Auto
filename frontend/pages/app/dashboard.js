@@ -1,9 +1,12 @@
-import { useState, useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
 import * as XLSX from 'xlsx'
 import useSWR, { useSWRConfig } from 'swr'
 import Layout from '../../components/Layout'
-import CalendarModal from '../../components/CalendarModal'
-import { ArrowUpRight, Plus, Users, LayoutList, Calendar as CalendarIcon, Car, Wrench, MoreHorizontal, Video, FileText, X } from 'lucide-react'
+import InterventionForm from '../../components/InterventionForm'
+import { fmt, fmtDate, fmtDays } from '../../lib/format'
+import { ArrowUpRight, Plus, Calendar as CalendarIcon, Wrench, X, TrendingUp } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,29 +18,14 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
-
-function fmt(n) {
-  if (n == null) return '—'
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '—'
-  return new Date(dateString).toLocaleDateString('fr-FR')
-}
+const CURRENT_YEAR = new Date().getFullYear()
 
 export default function Dashboard() {
+  const router = useRouter()
   const { data: stats, error: statsError } = useSWR(`${API_URL}/stats`, fetcher, { refreshInterval: 30000 })
   const { data: vehicles } = useSWR(`${API_URL}/vehicles`, fetcher)
   const { data: charges } = useSWR(`${API_URL}/charges`, fetcher)
@@ -45,58 +33,18 @@ export default function Dashboard() {
   const { data: interventions = [] } = useSWR(`${API_URL}/interventions`, fetcher)
   const { mutate } = useSWRConfig()
 
-  const [activeModal, setActiveModal] = useState(null) // 'ventes' | 'achats' | 'charges' | 'profit' | 'calendar' | 'intervention' | null
+  const [activeModal, setActiveModal] = useState(null) // 'ventes' | 'achats' | 'charges' | 'profit' | 'intervention' | null
+  const [chartYear, setChartYear] = useState(CURRENT_YEAR)
 
-  const handleAddEvent = async (payload) => {
-    const res = await fetch(`${API_URL}/events`, {
+  const handleAddIntervention = async (payload) => {
+    const res = await fetch(`${API_URL}/interventions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ ...payload, status: 'à prévoir' }),
     })
-    if (!res.ok) throw new Error('Failed to create event')
-    mutate(`${API_URL}/events`)
-  }
-
-  const handleUpdateEvent = async (id, payload) => {
-    const res = await fetch(`${API_URL}/events/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    if (!res.ok) throw new Error('Failed to update event')
-    mutate(`${API_URL}/events`)
-  }
-
-  const handleDeleteEvent = async (id) => {
-    const res = await fetch(`${API_URL}/events/${id}`, { method: 'DELETE' })
-    if (!res.ok) throw new Error('Failed to delete event')
-    mutate(`${API_URL}/events`)
-  }
-
-  const handleAddIntervention = async (e) => {
-    e.preventDefault()
-    const form = new FormData(e.target)
-    const payload = {
-      title: form.get('title'),
-      category: form.get('category'),
-      date_planned: form.get('date_planned'),
-      vehicle_id: parseInt(form.get('vehicle_id')),
-      status: 'à prévoir'
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/interventions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      if (!res.ok) throw new Error('Failed to create intervention')
-      mutate(`${API_URL}/interventions`)
-      setActiveModal(null)
-      // toast success handled globally or silently here, react-hot-toast should be available but not imported
-    } catch (err) {
-      console.error(err)
-    }
+    if (!res.ok) throw new Error('Failed to create intervention')
+    mutate(`${API_URL}/interventions`)
+    setActiveModal(null)
   }
 
   const fileInputRef = useRef(null)
@@ -114,7 +62,7 @@ export default function Dashboard() {
       const worksheet = workbook.Sheets[sheetName]
       const json = XLSX.utils.sheet_to_json(worksheet)
 
-      // Assuming Excel columns: Marque, Modèle, Immatriculation, Prix Achat, Prix Vente, Statut
+      // Colonnes Excel attendues : Marque, Modèle, Immatriculation, Prix Achat, Prix Vente, Statut
       let importedCount = 0
       for (const row of json) {
         const payload = {
@@ -128,40 +76,45 @@ export default function Dashboard() {
         await fetch(`${API_URL}/vehicles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         })
         importedCount++
       }
-      
+
       mutate(`${API_URL}/vehicles`)
       mutate(`${API_URL}/stats`)
-      if (typeof toast !== 'undefined') toast.success(`${importedCount} véhicules importés !`)
     } catch (err) {
       console.error(err)
-      if (typeof toast !== 'undefined') toast.error("Erreur lors de l'import")
     } finally {
       setIsImporting(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  // Chart Logic (Monthly)
+  // Années disponibles pour le graphique, dérivées des dates d'achat/vente réelles
+  const availableYears = useMemo(() => {
+    const years = new Set([CURRENT_YEAR])
+    vehicles?.forEach(v => {
+      if (v.date_buy) years.add(new Date(v.date_buy).getFullYear())
+      if (v.date_sell) years.add(new Date(v.date_sell).getFullYear())
+    })
+    return Array.from(years).sort((a, b) => b - a)
+  }, [vehicles])
+
   const chartData = useMemo(() => {
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
     const achatsData = new Array(12).fill(0)
     const ventesData = new Array(12).fill(0)
 
-    const currentYear = new Date().getFullYear()
-
     if (vehicles) {
       vehicles.forEach(v => {
         if (v.date_buy && v.price_buy) {
           const d = new Date(v.date_buy)
-          if (d.getFullYear() === currentYear) achatsData[d.getMonth()] += v.price_buy
+          if (d.getFullYear() === chartYear) achatsData[d.getMonth()] += v.price_buy
         }
         if (v.date_sell && v.price_sell) {
           const d = new Date(v.date_sell)
-          if (d.getFullYear() === currentYear) ventesData[d.getMonth()] += v.price_sell
+          if (d.getFullYear() === chartYear) ventesData[d.getMonth()] += v.price_sell
         }
       })
     }
@@ -169,32 +122,20 @@ export default function Dashboard() {
     return {
       labels: months,
       datasets: [
-        {
-          label: 'Achats',
-          data: achatsData,
-          backgroundColor: '#e8f4ec',
-          borderRadius: 4,
-        },
-        {
-          label: 'Ventes',
-          data: ventesData,
-          backgroundColor: '#0d532a',
-          borderRadius: 4,
-        }
-      ]
+        { label: 'Achats', data: achatsData, backgroundColor: '#e8f4ec', borderRadius: 4 },
+        { label: 'Ventes', data: ventesData, backgroundColor: '#0d532a', borderRadius: 4 },
+      ],
     }
-  }, [vehicles])
+  }, [vehicles, chartYear])
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false }
-    },
+    plugins: { legend: { display: false } },
     scales: {
       x: { grid: { display: false }, border: { display: false } },
-      y: { display: false }
-    }
+      y: { display: false },
+    },
   }
 
   if (statsError) return (
@@ -205,17 +146,18 @@ export default function Dashboard() {
 
   if (!stats) return (
     <Layout title="Tableau de bord">
-      <div className="loading-spinner">Chargement des données...</div>
+      <div className="loading-spinner"><div className="spinner" /> Chargement des données...</div>
     </Layout>
   )
 
   const profit = stats.total_profit ?? 0
   const isProfitNeg = profit < 0
+  const bestVehicle = stats.top_vehicles?.[0]
+  const bestVehicleInfo = bestVehicle ? vehicles?.find(v => v.id === bestVehicle.vehicle_id) : null
 
-  // Helper for Modals
   const renderTransactionsList = () => {
     let items = []
-    
+
     if (activeModal === 'ventes' && vehicles) {
       items = vehicles.filter(v => v.price_sell && v.date_sell)
         .sort((a, b) => new Date(b.date_sell) - new Date(a.date_sell))
@@ -238,7 +180,7 @@ export default function Dashboard() {
           <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eaeaea' }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
-              <div style={{ fontSize: 12, color: '#888' }}>{formatDate(item.date)}</div>
+              <div style={{ fontSize: 12, color: '#888' }}>{fmtDate(item.date)}</div>
             </div>
             <div style={{ fontWeight: 600, color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
               {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
@@ -257,24 +199,24 @@ export default function Dashboard() {
           <p className="page-subtitle">Gérez et optimisez votre flotte automobile avec simplicité.</p>
         </div>
         <div>
-          <input 
-            type="file" 
-            accept=".xlsx, .xls, .csv" 
-            style={{ display: 'none' }} 
-            ref={fileInputRef} 
+          <input
+            type="file"
+            accept=".xlsx, .xls, .csv"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
             onChange={handleImportExcel}
           />
-          <button 
-            className="btn btn-outline" 
-            style={{ marginRight: '10px' }} 
+          <button
+            className="btn btn-outline"
+            style={{ marginRight: '10px' }}
             onClick={() => fileInputRef.current?.click()}
             disabled={isImporting}
           >
             {isImporting ? 'Importation...' : 'Importer Données'}
           </button>
-          <button className="btn btn-primary">
+          <Link href="/app/vehicles/new" className="btn btn-primary">
             <Plus size={16} /> Nouveau Véhicule
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -302,9 +244,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="kpi-value">{fmt(stats.total_sell ?? 0)}</div>
-          <div className="kpi-trend">
-            Voir les transactions détaillées
-          </div>
+          <div className="kpi-trend">Voir les transactions détaillées</div>
         </div>
 
         <div className="kpi-card">
@@ -315,9 +255,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="kpi-value">{fmt(stats.total_buy ?? 0)}</div>
-          <div className="kpi-trend">
-            Voir les transactions détaillées
-          </div>
+          <div className="kpi-trend">Voir les transactions détaillées</div>
         </div>
 
         <div className="kpi-card">
@@ -328,9 +266,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="kpi-value">{fmt(stats.total_charges ?? 0)}</div>
-          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>
-            Voir les transactions détaillées
-          </div>
+          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>Voir les transactions détaillées</div>
         </div>
       </div>
 
@@ -338,7 +274,15 @@ export default function Dashboard() {
         {/* Main Chart */}
         <div className="widget-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="widget-header">
-            <div className="widget-title">Évolution Commerciale ({new Date().getFullYear()})</div>
+            <div className="widget-title">Évolution Commerciale</div>
+            <select
+              className="filter-select"
+              style={{ fontSize: 12, padding: '4px 10px' }}
+              value={chartYear}
+              onChange={e => setChartYear(parseInt(e.target.value))}
+            >
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
           </div>
           <div style={{ flex: 1, minHeight: '220px', position: 'relative' }}>
             <Bar data={chartData} options={chartOptions} />
@@ -349,16 +293,16 @@ export default function Dashboard() {
         <div className="widget-card">
           <div className="widget-header">
             <div className="widget-title">Planning</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('calendar')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            <Link href="/app/planning" className="kpi-icon-wrapper" style={{ background: 'transparent', border: 'none' }}>
               <ArrowUpRight size={16} color="var(--text-primary)" />
-            </button>
+            </Link>
           </div>
           <div style={{ marginBottom: '16px', flex: 1 }}>
             {events.filter(e => new Date(e.start_time) >= new Date()).slice(0, 2).map((e, idx) => (
               <div key={idx} style={{ marginBottom: 12 }}>
                 <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px', color: 'var(--text-primary)' }}>{e.title}</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                  {formatDate(e.start_time)} à {new Date(e.start_time).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                  {fmtDate(e.start_time)} à {new Date(e.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             ))}
@@ -366,9 +310,9 @@ export default function Dashboard() {
               <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Aucun événement à venir.</p>
             )}
           </div>
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setActiveModal('calendar')}>
-            <CalendarIcon size={16} /> Ouvrir le calendrier complet
-          </button>
+          <Link href="/app/planning" className="btn btn-primary" style={{ width: '100%' }}>
+            <CalendarIcon size={16} /> Ouvrir le planning complet
+          </Link>
         </div>
       </div>
 
@@ -377,17 +321,17 @@ export default function Dashboard() {
         <div className="widget-card">
           <div className="widget-header">
             <div className="widget-title">Prochains Entretiens</div>
-            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px' }} onClick={() => setActiveModal('intervention')}><Plus size={14}/> Ajouter</button>
+            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px' }} onClick={() => setActiveModal('intervention')}><Plus size={14} /> Ajouter</button>
           </div>
-          
+
           <div className="task-list">
             {interventions.filter(i => new Date(i.date_planned) >= new Date() && i.status !== 'terminée').slice(0, 3).map((i, idx) => (
               <div key={idx} className="task-item">
                 <div className="task-info">
-                  <div className="task-icon"><Wrench size={20} color="var(--accent-primary)"/></div>
+                  <div className="task-icon"><Wrench size={20} color="var(--accent-primary)" /></div>
                   <div>
                     <div className="task-title">{i.title} - {vehicles?.find(v => v.id === i.vehicle_id)?.brand || 'Véhicule Inconnu'}</div>
-                    <div className="task-date">Prévu le : {formatDate(i.date_planned)}</div>
+                    <div className="task-date">Prévu le : {fmtDate(i.date_planned)}</div>
                   </div>
                 </div>
                 <span className={`badge ${i.status === 'en cours' ? 'badge-in-progress' : 'badge-todo'}`}>{i.status === 'en cours' ? 'En Cours' : 'À Faire'}</span>
@@ -399,52 +343,66 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Performance flotte */}
+        {/* Performance flotte — indicateurs réellement calculés côté serveur */}
         <div className="widget-card">
           <div className="widget-header">
             <div className="widget-title">Performance Flotte</div>
+            <TrendingUp size={16} color="var(--text-muted)" />
           </div>
-          <div style={{ textAlign: 'center', margin: '30px 0' }}>
-            <div style={{ 
-              width: '160px', 
-              height: '160px', 
-              borderRadius: '50%', 
-              border: '16px solid var(--accent-primary)',
-              borderRightColor: 'var(--bg-main)',
-              margin: '0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column'
-            }}>
-              <span style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {vehicles ? `+${Math.round(vehicles.length * 0.1)}%` : '0%'}
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Croissance</span>
+          <div>
+            <div className="mini-stat-row">
+              <span className="mini-stat-label">Marge moyenne / véhicule vendu</span>
+              <span className={`mini-stat-value ${stats.avg_profit >= 0 ? 'positive' : 'negative'}`}>{fmt(stats.avg_profit)}</span>
             </div>
-            <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-              Comparé à l'année précédente
+            <div className="mini-stat-row">
+              <span className="mini-stat-label">Temps de rotation moyen</span>
+              <span className="mini-stat-value">{fmtDays(stats.avg_duration_days)}</span>
             </div>
+            <div className="mini-stat-row">
+              <span className="mini-stat-label">Véhicules vendus</span>
+              <span className="mini-stat-value">{stats.count_sold ?? 0} / {stats.count_vehicles ?? 0}</span>
+            </div>
+            {bestVehicleInfo && (
+              <div className="mini-stat-row">
+                <span className="mini-stat-label">Meilleure affaire</span>
+                <span className="mini-stat-value positive">{bestVehicleInfo.brand} {bestVehicleInfo.model} · {fmt(bestVehicle.profit)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* KPI Modals */}
-      {activeModal && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: '12px', padding: '24px', maxHeight: '80vh', overflowY: 'auto' }}>
+      {activeModal && activeModal !== 'intervention' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', padding: '24px', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700 }}>
                 {activeModal === 'ventes' && 'Détail des Ventes'}
                 {activeModal === 'achats' && 'Détail des Achats'}
                 {activeModal === 'charges' && 'Détail des Charges'}
-                {activeModal === 'profit' && 'Analyse du Profit (À venir)'}
+                {activeModal === 'profit' && 'Analyse du Profit'}
               </h2>
               <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
             </div>
-            
+
             {activeModal === 'profit' ? (
-              <p style={{ color: '#666' }}>L'analyse détaillée du profit sera bientôt disponible (vue par véhicule, marge, etc.).</p>
+              <div>
+                <div className="mini-stat-row">
+                  <span className="mini-stat-label">Marge moyenne / véhicule vendu</span>
+                  <span className="mini-stat-value">{fmt(stats.avg_profit)}</span>
+                </div>
+                <div className="mini-stat-row">
+                  <span className="mini-stat-label">Temps de rotation moyen</span>
+                  <span className="mini-stat-value">{fmtDays(stats.avg_duration_days)}</span>
+                </div>
+                {stats.worst_vehicles?.[0] && (
+                  <div className="mini-stat-row">
+                    <span className="mini-stat-label">Pire affaire</span>
+                    <span className="mini-stat-value negative">{fmt(stats.worst_vehicles[0].profit)}</span>
+                  </div>
+                )}
+              </div>
             ) : (
               renderTransactionsList()
             )}
@@ -452,56 +410,21 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Calendar Modal */}
-      {activeModal === 'calendar' && (
-        <CalendarModal 
-          events={events}
-          vehicles={vehicles}
-          onClose={() => setActiveModal(null)}
-          onAddEvent={handleAddEvent}
-          onUpdateEvent={handleUpdateEvent}
-          onDeleteEvent={handleDeleteEvent}
-        />
-      )}
-
       {/* Intervention Modal */}
       {activeModal === 'intervention' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '12px', padding: '24px' }}>
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700 }}>Nouvel Entretien</h2>
               <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
             </div>
-            
-            <form onSubmit={handleAddIntervention}>
-              <div className="form-group">
-                <label className="form-label">Titre de l'intervention</label>
-                <input name="title" required type="text" className="form-input" placeholder="Ex: Contrôle technique" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Catégorie</label>
-                <select name="category" required className="form-input">
-                  <option value="CT">Contrôle Technique</option>
-                  <option value="Vidange">Vidange</option>
-                  <option value="Réparation">Réparation</option>
-                  <option value="Autre">Autre</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Véhicule</label>
-                <select name="vehicle_id" required className="form-input">
-                  <option value="">-- Choisir un véhicule --</option>
-                  {vehicles && vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.registration})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Date prévue</label>
-                <input name="date_planned" required type="date" className="form-input" />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 10 }}>Enregistrer</button>
-            </form>
+            <InterventionForm
+              vehicles={vehicles}
+              showVehicleSelect
+              onSubmit={handleAddIntervention}
+              onCancel={() => setActiveModal(null)}
+              submitLabel="Enregistrer"
+            />
           </div>
         </div>
       )}

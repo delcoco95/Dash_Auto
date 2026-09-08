@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Layout from '../../components/Layout'
+import { Bot, User, Send } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -45,26 +46,26 @@ export default function AI() {
       } else if (data.note) {
         text = data.note + '\n\n'
         if (data.local_analysis?.opportunities?.length) {
-          text += ' **Meilleures opportunités :**\n'
+          text += 'Meilleures opportunités :\n'
           data.local_analysis.opportunities.slice(0, 3).forEach(o => {
             text += `• ${o.brand} ${o.model} — profit estimé : ${o.profit_if_sold?.toLocaleString('fr-FR')} €\n`
           })
         }
         if (data.local_analysis?.high_costs?.length) {
-          text += '\n **Véhicules avec charges élevées :**\n'
+          text += '\nVéhicules avec charges élevées :\n'
           data.local_analysis.high_costs.slice(0, 3).forEach(c => {
             text += `• Véhicule #${c.vehicle_id} — ${c.charges?.toLocaleString('fr-FR')} € de charges\n`
           })
         }
       } else if (data.error) {
-        text = `️ Erreur : ${data.error}`
+        text = `Erreur : ${data.error}`
       } else {
         text = JSON.stringify(data, null, 2)
       }
 
       setMessages(prev => [...prev, { role: 'ai', text }])
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'ai', text: '️ Impossible de contacter le backend.' }])
+      setMessages(prev => [...prev, { role: 'ai', text: 'Impossible de contacter le backend.' }])
     } finally {
       setLoading(false)
     }
@@ -101,7 +102,7 @@ export default function AI() {
 
         <div className="card fade-in-up">
           <div className="card-header">
-            <span className="card-title"> Conversation</span>
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={18} /> Conversation</span>
             <span style={{
               fontSize: 12,
               padding: '3px 10px',
@@ -120,7 +121,7 @@ export default function AI() {
               {messages.map((m, i) => (
                 <div key={i} className={`chat-bubble ${m.role === 'user' ? 'user' : 'ai'}`}>
                   <div className={`chat-avatar ${m.role === 'user' ? 'user-avatar' : 'ai-avatar'}`}>
-                    {m.role === 'user' ? '' : ''}
+                    {m.role === 'user' ? <User size={15} /> : <Bot size={15} />}
                   </div>
                   <div className="chat-text" style={{ whiteSpace: 'pre-wrap' }}>
                     {m.text}
@@ -130,7 +131,7 @@ export default function AI() {
 
               {loading && (
                 <div className="chat-bubble ai">
-                  <div className="chat-avatar ai-avatar"></div>
+                  <div className="chat-avatar ai-avatar"><Bot size={15} /></div>
                   <div className="chat-text">
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
@@ -160,7 +161,7 @@ export default function AI() {
                 disabled={loading || !input.trim()}
                 style={{ minWidth: 100, alignSelf: 'stretch' }}
               >
-                {loading ? '⟳' : ' Envoyer'}
+                {loading ? '···' : <><Send size={15} /> Envoyer</>}
               </button>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>

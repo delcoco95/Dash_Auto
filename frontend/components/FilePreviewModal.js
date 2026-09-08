@@ -1,19 +1,34 @@
+import { useState } from 'react'
 import { X, Download } from 'lucide-react'
 
 export default function FilePreviewModal({ file, onClose }) {
+  const [downloading, setDownloading] = useState(false)
   if (!file) return null;
 
   const isImage = file.type?.startsWith('image/') || file.url.match(/\.(jpeg|jpg|gif|png|webp)$/i);
 
-  const handleDownload = () => {
-    // Attempting to force download. Some browsers might just open it if cross-origin.
-    const link = document.createElement('a');
-    link.href = file.url;
-    link.download = file.name || 'document';
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    // L'attribut `download` d'un <a> est ignoré par la plupart des navigateurs sur une
+    // origine différente (stockage Supabase) : le fichier s'ouvre alors dans un nouvel
+    // onglet au lieu d'être téléchargé. On récupère donc le fichier en mémoire (blob) et
+    // on déclenche le téléchargement depuis une URL locale, qui elle est bien respectée.
+    setDownloading(true)
+    try {
+      const res = await fetch(file.url)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = file.name || 'document'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      console.error(err)
+      window.open(file.url, '_blank')
+    }
+    setDownloading(false)
   };
 
   return (
@@ -48,9 +63,9 @@ export default function FilePreviewModal({ file, onClose }) {
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>
             Fermer
           </button>
-          <button onClick={handleDownload} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--primary, #00d4aa)', color: '#fff', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={handleDownload} disabled={downloading} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--primary, #00d4aa)', color: '#fff', cursor: downloading ? 'default' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', opacity: downloading ? 0.7 : 1 }}>
             <Download size={18} />
-            Télécharger
+            {downloading ? 'Téléchargement...' : 'Télécharger'}
           </button>
         </div>
       </div>

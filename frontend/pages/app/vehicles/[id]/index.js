@@ -4,15 +4,19 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../../components/Layout'
 import FilePreviewModal from '../../../../components/FilePreviewModal'
+import DocumentUploadForm from '../../../../components/DocumentUploadForm'
+import InterventionForm, { INT_STATUSES } from '../../../../components/InterventionForm'
 import { supabase } from '../../../../lib/supabase'
+import { fmt, fmtKm, fmtDate } from '../../../../lib/format'
+import { getDocIcon, docStatusBadgeClass } from '../../../../lib/documents'
+import {
+  Info, Image as ImageIcon, FileText, Wrench, Receipt, History,
+  Car, Euro, Settings2, StickyNote, Pencil, Trash2, CheckCircle2,
+  AlertCircle, AlertTriangle, Star, Plus,
+} from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
-
-const fmt = (n) => n == null ? '—'
-  : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
-const fmtKm = (km) => km == null ? '—' : new Intl.NumberFormat('fr-FR').format(km) + ' km'
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
 
 const STATE_COLORS = { excellent: '#00d4aa', bon: '#6c63ff', correct: '#f5a623', mauvais: '#ff4d6d' }
 
@@ -46,7 +50,7 @@ function Toast({ toasts }) {
     <div className="toast-container">
       {toasts.map(t => (
         <div key={t.id} className={`toast toast-${t.type}`}>
-          {t.type === 'success' ? '' : ''} {t.message}
+          {t.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />} {t.message}
         </div>
       ))}
     </div>
@@ -68,19 +72,15 @@ function ConfirmModal({ title, text, onConfirm, onCancel }) {
   )
 }
 
-const INTERVENTION_CATS = ['', 'Vidange', 'Révision', 'Freins', 'Pneus', 'Carrosserie', 'Peinture', 'Pare-brise', 'Contrôle technique', 'Nettoyage', 'Diagnostic', 'Électricité', 'Entretien général', 'Autre']
-const INT_STATUSES = ['à prévoir', 'en cours', 'terminée', 'annulée']
-const INT_PRIORITIES = ['haute', 'normale', 'basse']
 const CHARGE_CATS = ['Achat', 'Réparation', 'Entretien', 'Assurance', 'Transport', 'Carburant', 'Taxe', 'Commission', 'Autre']
-const DOC_CATS = ['Photo', 'Facture', 'Contrôle technique', 'Carte grise', 'Assurance', 'Devis', 'Contrat', 'Rapport', 'Autre']
 
 const TABS = [
-  { id: 'info',          label: ' Informations' },
-  { id: 'images',        label: '️ Galerie' },
-  { id: 'docs',          label: ' Documents' },
-  { id: 'interventions', label: ' Travaux' },
-  { id: 'charges',       label: ' Charges' },
-  { id: 'histo',         label: ' Historique' },
+  { id: 'info',          label: 'Informations',   icon: Info },
+  { id: 'images',        label: 'Galerie',         icon: ImageIcon },
+  { id: 'docs',          label: 'Documents',       icon: FileText },
+  { id: 'interventions', label: 'Travaux',         icon: Wrench },
+  { id: 'charges',       label: 'Charges',         icon: Receipt },
+  { id: 'histo',         label: 'Historique',      icon: History },
 ]
 
 export default function VehicleDetail() {
@@ -101,12 +101,9 @@ export default function VehicleDetail() {
   // Forms state
   const [chargeForm, setChargeForm] = useState({ category: '', amount: '', date: '', description: '' })
   const [showChargeForm, setShowChargeForm] = useState(false)
-  const [intForm, setIntForm] = useState({ title: '', category: '', status: 'à prévoir', priority: 'normale', date_planned: '', cost_estimated: '', description: '' })
   const [showIntForm, setShowIntForm] = useState(false)
-  
-  const [docForm, setDocForm] = useState({ category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
+
   const [uploading, setUploading] = useState(false)
-  const fileRef = useRef()
   const imgRef = useRef()
 
   const toast = (message, type = 'success') => {
@@ -173,61 +170,6 @@ export default function VehicleDetail() {
   }
 
   // ── Documents ──
-  const handleDocUpload = async (file) => {
-    if (!file) return
-    setUploading(true)
-    
-    try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-      const filePath = `${id}/${fileName}`
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file)
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath)
-
-      const payload = {
-        vehicle_id: parseInt(id),
-        category: docForm.category || null,
-        name: docForm.name || file.name,
-        description: docForm.description || null,
-        doc_date: docForm.date || null,
-        expiration_date: docForm.expiration_date || null,
-        amount: docForm.amount ? parseFloat(docForm.amount) : null,
-        status: docForm.status || 'valide',
-        url: publicUrl,
-        type: file.type || "application/octet-stream"
-      }
-
-      const res = await fetch(`${API_URL}/documents/url`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload) 
-      })
-
-      if (res.ok) { 
-        mutD()
-        toast('Document ajouté')
-        setDocForm({ category: '', name: '', description: '', date: '', expiration_date: '', amount: '', status: 'valide' })
-      } else {
-        toast('Erreur ajout DB', 'error')
-      }
-    } catch (err) {
-      console.error(err)
-      toast('Erreur upload Supabase', 'error')
-    }
-    
-    setUploading(false)
-  }
-
   const deleteDoc = async (did) => {
     const res = await fetch(`${API_URL}/documents/${did}`, { method: 'DELETE' })
     if (res.ok) { mutD(); toast('Document supprimé') }
@@ -255,22 +197,14 @@ export default function VehicleDetail() {
   }
 
   // ── Interventions ──
-  const addIntervention = async (e) => {
-    e.preventDefault()
-    if (!intForm.title) return
+  const addIntervention = async (payload) => {
     const res = await fetch(`${API_URL}/interventions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...intForm,
-        vehicle_id: parseInt(id),
-        cost_estimated: intForm.cost_estimated ? parseFloat(intForm.cost_estimated) : null,
-        date_planned: intForm.date_planned || null,
-      }),
+      body: JSON.stringify({ ...payload, vehicle_id: parseInt(id) }),
     })
     if (res.ok) {
       mutI()
-      setIntForm({ title: '', category: '', status: 'à prévoir', priority: 'normale', date_planned: '', cost_estimated: '', description: '' })
       setShowIntForm(false); toast('Intervention ajoutée')
     } else toast('Erreur', 'error')
   }
@@ -294,7 +228,7 @@ export default function VehicleDetail() {
       <div className="page-header"><h1 className="page-title">Véhicule non trouvé</h1></div>
       <div className="page-body">
         <div className="card"><div className="card-body">
-          <div className="empty-state">️ Véhicule introuvable.<br />
+          <div className="empty-state"><AlertTriangle size={20} color="var(--warning)" style={{ marginBottom: 8 }} /><br />Véhicule introuvable.<br />
             <Link href="/app/vehicles" style={{ color: 'var(--accent)', marginTop: 12, display: 'inline-block' }}>← Retour à la liste</Link>
           </div>
         </div></div>
@@ -317,15 +251,6 @@ export default function VehicleDetail() {
   const customFields = (() => {
     try { return Object.entries(JSON.parse(vehicle.custom_fields || '{}')) } catch { return [] }
   })()
-
-  const docIcon = (type) => {
-    if (!type) return ''
-    if (type.startsWith('image/')) return '️'
-    if (type.includes('pdf')) return ''
-    if (type.includes('word') || type.includes('doc')) return ''
-    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return ''
-    return ''
-  }
 
   const histovecUrl = vehicle.registration 
     ? `https://histovec.interieur.gouv.fr/histovec/accueil?immatriculation=${vehicle.registration}`
@@ -365,10 +290,10 @@ export default function VehicleDetail() {
           </div>
           <div className="detail-actions">
             <Link href={`/app/vehicles/${id}/edit`} className="btn btn-ghost">
-              ️ Modifier
+              <Pencil size={15} /> Modifier
             </Link>
-            <button className="btn btn-danger btn" onClick={() => setConfirmDelete(true)}>
-               Supprimer
+            <button className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={15} /> Supprimer
             </button>
           </div>
         </div>
@@ -383,6 +308,7 @@ export default function VehicleDetail() {
               className={`tab-btn${tab === t.id ? ' active' : ''}`}
               onClick={() => setTab(t.id)}
             >
+              <t.icon size={15} />
               {t.label}
               {t.id === 'images'  && images?.length  ? ` (${images.length})`  : ''}
               {t.id === 'charges' && charges?.length ? ` (${charges.length})` : ''}
@@ -396,7 +322,7 @@ export default function VehicleDetail() {
         {tab === 'info' && (
           <>
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title"> Identité</span></div>
+              <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Car size={18} /> Identité</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Marque"         value={vehicle.brand} />
@@ -416,7 +342,7 @@ export default function VehicleDetail() {
             </div>
 
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title"> Financier</span></div>
+              <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Euro size={18} /> Financier</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Kilométrage"     value={fmtKm(vehicle.km)} />
@@ -434,7 +360,7 @@ export default function VehicleDetail() {
             </div>
 
             <div className="card" style={{ marginBottom: 18 }}>
-              <div className="card-header"><span className="card-title"> Technique</span></div>
+              <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Settings2 size={18} /> Technique</span></div>
               <div className="card-body">
                 <div className="info-grid">
                   <InfoItem label="Dernier entretien"  value={fmtDate(vehicle.date_last_service)} />
@@ -451,7 +377,7 @@ export default function VehicleDetail() {
 
             {(vehicle.notes || vehicle.internal_notes || customFields.length > 0) && (
               <div className="card">
-                <div className="card-header"><span className="card-title"> Notes</span></div>
+                <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><StickyNote size={18} /> Notes</span></div>
                 <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {vehicle.notes && (
                     <div>
@@ -483,10 +409,10 @@ export default function VehicleDetail() {
         {tab === 'images' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title">️ Galerie Photos ({images?.length ?? 0})</span>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ImageIcon size={18} /> Galerie Photos ({images?.length ?? 0})</span>
               <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
                 onClick={() => !uploading && imgRef.current?.click()}>
-                {uploading ? '⟳ Envoi...' : '+ Ajouter Image'}
+                <Plus size={14} /> {uploading ? 'Envoi...' : 'Ajouter une image'}
               </button>
               <input ref={imgRef} type="file" style={{ display: 'none' }}
                     accept=".jpg,.jpeg,.png,.webp"
@@ -517,13 +443,13 @@ export default function VehicleDetail() {
                       <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                         {!img.is_main && (
                           <button onClick={() => setMainImage(img.id)} title="Définir comme image principale"
-                            style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px' }}>
-                            ⭐
+                            style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                            <Star size={14} />
                           </button>
                         )}
                         <button onClick={() => deleteImage(img.id)} title="Supprimer"
-                          style={{ background: 'rgba(255,77,109,0.8)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px 6px' }}>
-                          🗑️
+                          style={{ background: 'rgba(255,77,109,0.8)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '4px 6px', display: 'flex' }}>
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -538,7 +464,7 @@ export default function VehicleDetail() {
         {tab === 'charges' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title"> Charges ({charges?.length ?? 0})</span>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Receipt size={18} /> Charges ({charges?.length ?? 0})</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {charges?.length > 0 && (
                   <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>
@@ -547,7 +473,7 @@ export default function VehicleDetail() {
                 )}
                 <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
                   onClick={() => setShowChargeForm(s => !s)}>
-                  + Ajouter
+                  <Plus size={14} /> Ajouter
                 </button>
               </div>
             </div>
@@ -595,7 +521,7 @@ export default function VehicleDetail() {
                       <span className="charge-desc">{c.description || '—'}</span>
                       <span className="charge-date">{fmtDate(c.date)}</span>
                       <span className="charge-amount">- {fmt(c.amount)}</span>
-                      <button className="btn-icon danger" title="Supprimer" onClick={() => deleteCharge(c.id)}></button>
+                      <button className="btn-icon danger" title="Supprimer" onClick={() => deleteCharge(c.id)}><Trash2 size={14} /></button>
                     </div>
                   ))}
                 </div>
@@ -608,66 +534,19 @@ export default function VehicleDetail() {
         {tab === 'docs' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title"> Documents Administratifs ({docs?.length ?? 0})</span>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FileText size={18} /> Documents Administratifs ({docs?.length ?? 0})</span>
             </div>
             <div className="card-body">
-              {/* Detailed Upload form */}
-              <div style={{ padding: '16px', background: 'var(--surface-light)', borderRadius: 12, marginBottom: 24, border: '1px solid var(--border)' }}>
+              {/* Formulaire d'ajout — composant partagé avec la vue Documents globale */}
+              <div style={{ padding: '16px', background: 'var(--bg-main)', borderRadius: 12, marginBottom: 24, border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Ajouter un document</div>
-                <div className="form-grid-3" style={{ marginBottom: 16 }}>
-                  <div className="form-group">
-                    <label className="form-label">Nom du document</label>
-                    <input className="form-input" placeholder="Laisser vide pour utiliser le nom du fichier" value={docForm.name} onChange={e => setDocForm(p => ({ ...p, name: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Catégorie</label>
-                    <select className="form-input" value={docForm.category} onChange={e => setDocForm(p => ({ ...p, category: e.target.value }))}>
-                      <option value="">— Sélectionner —</option>
-                      {DOC_CATS.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Statut</label>
-                    <select className="form-input" value={docForm.status} onChange={e => setDocForm(p => ({ ...p, status: e.target.value }))}>
-                      <option value="valide">Valide</option>
-                      <option value="en attente">En attente</option>
-                      <option value="expiré">Expiré</option>
-                      <option value="archivé">Archivé</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Date du document</label>
-                    <input type="date" className="form-input" value={docForm.date} onChange={e => setDocForm(p => ({ ...p, date: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Date d'expiration</label>
-                    <input type="date" className="form-input" value={docForm.expiration_date} onChange={e => setDocForm(p => ({ ...p, expiration_date: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Montant éventuel (€)</label>
-                    <input type="number" step="0.01" className="form-input" placeholder="0.00" value={docForm.amount} onChange={e => setDocForm(p => ({ ...p, amount: e.target.value }))} />
-                  </div>
-                  <div className="form-group span-3">
-                    <label className="form-label">Description / Commentaires</label>
-                    <input className="form-input" value={docForm.description} onChange={e => setDocForm(p => ({ ...p, description: e.target.value }))} />
-                  </div>
-                </div>
-                
-                <div
-                  className={`upload-zone${uploading ? ' drag-over' : ''}`}
-                  onClick={() => !uploading && fileRef.current?.click()}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); handleDocUpload(e.dataTransfer.files[0]) }}
-                >
-                  <div className="upload-zone-icon">{uploading ? '⟳' : ''}</div>
-                  <div className="upload-zone-text">
-                    {uploading ? 'Envoi en cours...' : 'Cliquez ou glissez le fichier ici pour valider'}
-                  </div>
-                  <div className="upload-zone-hint">PDF, Excel, Word, etc. (max 10 MB)</div>
-                  <input ref={fileRef} type="file" style={{ display: 'none' }}
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp"
-                    onChange={e => handleDocUpload(e.target.files[0])} />
-                </div>
+                <DocumentUploadForm
+                  apiUrl={API_URL}
+                  vehicleId={parseInt(id)}
+                  onUploaded={(doc, errMsg) => {
+                    if (doc) { mutD(); toast('Document ajouté') } else if (errMsg) { toast(errMsg, 'error') }
+                  }}
+                />
               </div>
 
               {/* Documents grid */}
@@ -676,21 +555,21 @@ export default function VehicleDetail() {
               {docs?.length > 0 && (
                 <div className="doc-grid">
                   {docs.map(d => {
-                    const icon = docIcon(d.type)
+                    const DocIcon = getDocIcon(d.type)
                     return (
                       <div className="doc-item" key={d.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                         <span onClick={() => setPreviewFile({ url: d.url.startsWith('http') ? d.url : `${API_URL}${d.url}`, name: d.name, type: d.type })} style={{ cursor: 'pointer' }}>
-                          <div className="doc-icon-preview" style={{ height: 60, width: 60 }}>{icon}</div>
+                          <div className="doc-icon-preview" style={{ height: 60, width: 60 }}><DocIcon size={22} /></div>
                         </span>
                         <div className="doc-info" style={{ flex: 1 }}>
                           <div className="doc-name" title={d.name}>{d.name}</div>
                           <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                            {d.category && <span className="badge badge-stock" style={{ fontSize: 10 }}>{d.category}</span>}
-                            <span className="badge" style={{ fontSize: 10 }}>{d.status || 'valide'}</span>
+                            {d.category && <span className="badge badge-doc-attente" style={{ fontSize: 10 }}>{d.category}</span>}
+                            <span className={`badge ${docStatusBadgeClass(d.status)}`} style={{ fontSize: 10 }}>{d.status || 'valide'}</span>
                             {d.expiration_date && <span style={{ fontSize: 11, color: 'var(--danger)' }}>Exp: {fmtDate(d.expiration_date)}</span>}
                           </div>
                         </div>
-                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}>🗑️</button>
+                        <button className="doc-delete" title="Supprimer" onClick={() => deleteDoc(d.id)}><Trash2 size={16} /></button>
                       </div>
                     )
                   })}
@@ -704,57 +583,21 @@ export default function VehicleDetail() {
         {tab === 'interventions' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title"> Travaux & Interventions ({interventions?.length ?? 0})</span>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wrench size={18} /> Travaux & Interventions ({interventions?.length ?? 0})</span>
               <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
                 onClick={() => setShowIntForm(s => !s)}>
-                + Ajouter
+                <Plus size={14} /> Ajouter
               </button>
             </div>
             <div className="card-body">
               {showIntForm && (
-                <form className="inline-form" onSubmit={addIntervention} style={{ marginBottom: 20 }}>
-                  <div className="inline-form-title">Nouvelle intervention</div>
-                  <div className="form-grid-2" style={{ marginBottom: 12 }}>
-                    <div className="form-group span-2">
-                      <label className="form-label required">Titre</label>
-                      <input className="form-input" required value={intForm.title} onChange={e => setIntForm(p => ({ ...p, title: e.target.value }))} placeholder="Ex: Vidange + filtres" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Catégorie</label>
-                      <select className="form-input" value={intForm.category} onChange={e => setIntForm(p => ({ ...p, category: e.target.value }))}>
-                        {INTERVENTION_CATS.map(c => <option key={c} value={c}>{c || '— Catégorie —'}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Statut</label>
-                      <select className="form-input" value={intForm.status} onChange={e => setIntForm(p => ({ ...p, status: e.target.value }))}>
-                        {INT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Priorité</label>
-                      <select className="form-input" value={intForm.priority} onChange={e => setIntForm(p => ({ ...p, priority: e.target.value }))}>
-                        {INT_PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Date prévue</label>
-                      <input className="form-input" type="date" value={intForm.date_planned} onChange={e => setIntForm(p => ({ ...p, date_planned: e.target.value }))} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Coût estimé (€)</label>
-                      <input className="form-input" type="number" step="0.01" min="0" value={intForm.cost_estimated} onChange={e => setIntForm(p => ({ ...p, cost_estimated: e.target.value }))} placeholder="0.00" />
-                    </div>
-                    <div className="form-group span-2">
-                      <label className="form-label">Description</label>
-                      <textarea className="form-input" rows={2} value={intForm.description} onChange={e => setIntForm(p => ({ ...p, description: e.target.value }))} placeholder="Détails..." style={{ resize: 'vertical' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="submit" className="btn btn-primary" style={{ fontSize: 13 }}>Ajouter</button>
-                    <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowIntForm(false)}>Annuler</button>
-                  </div>
-                </form>
+                <div style={{ marginBottom: 20 }}>
+                  <InterventionForm
+                    onSubmit={addIntervention}
+                    onCancel={() => setShowIntForm(false)}
+                    submitLabel="Ajouter"
+                  />
+                </div>
               )}
 
               {!interventions && <div className="loading-spinner"><div className="spinner" /></div>}
@@ -769,10 +612,10 @@ export default function VehicleDetail() {
                       <div className="intervention-content">
                         <div className="intervention-title">{i.title}</div>
                         <div className="intervention-meta">
-                          {i.category && <span> {i.category}</span>}
-                          {i.date_planned && <span> {fmtDate(i.date_planned)}</span>}
-                          {i.cost_estimated != null && <span> Estimé : {fmt(i.cost_estimated)}</span>}
-                          {i.cost_actual != null && <span> Réel : {fmt(i.cost_actual)}</span>}
+                          {i.category && <span>{i.category}</span>}
+                          {i.date_planned && <span>Prévu le {fmtDate(i.date_planned)}</span>}
+                          {i.cost_estimated != null && <span>Estimé : {fmt(i.cost_estimated)}</span>}
+                          {i.cost_actual != null && <span>Réel : {fmt(i.cost_actual)}</span>}
                         </div>
                         {i.description && (
                           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>{i.description}</p>
@@ -789,7 +632,7 @@ export default function VehicleDetail() {
                         >
                           {INT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <button className="btn-icon danger" title="Supprimer" onClick={() => deleteIntervention(i.id)}></button>
+                        <button className="btn-icon danger" title="Supprimer" onClick={() => deleteIntervention(i.id)}><Trash2 size={14} /></button>
                       </div>
                     </div>
                   ))}
@@ -803,12 +646,12 @@ export default function VehicleDetail() {
         {tab === 'histo' && (
           <div className="card">
             <div className="card-header">
-              <span className="card-title"> Historique & Origine</span>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><History size={18} /> Historique & Origine</span>
             </div>
             <div className="card-body">
               <div style={{ background: 'var(--surface-light)', padding: 24, borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                   Service HistoVec
+                  <History size={18} /> Service HistoVec
                 </h3>
                 <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
                   Le service public HistoVec permet de consulter l'historique complet d'un véhicule immatriculé en France (nombre de propriétaires, sinistres, alertes, kilométrage CT).
@@ -820,7 +663,7 @@ export default function VehicleDetail() {
                 </div>
                 <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-                   Vous pouvez importer le rapport PDF généré par HistoVec dans l'onglet <strong>Documents</strong> afin que l'Assistant IA puisse l'analyser automatiquement.
+                  Astuce : importez le rapport PDF généré par HistoVec dans l'onglet <strong>Documents</strong> afin de le conserver avec le reste du dossier du véhicule.
                 </p>
               </div>
 

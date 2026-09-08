@@ -4,6 +4,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../../components/Layout'
 import VehicleForm from '../../../../components/VehicleForm'
+import { Pencil, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -55,13 +56,14 @@ export default function EditVehicle() {
             ← {title}
           </Link>
         </div>
-        <h1 className="page-title">️ Modifier — {title}</h1>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Pencil size={22} /> Modifier — {title}</h1>
         <p className="page-subtitle">Mettez à jour les informations du véhicule</p>
       </div>
 
       <div className="page-body">
         {error && (
           <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
             padding: '12px 16px',
             background: 'rgba(255,77,109,.1)',
             border: '1px solid rgba(255,77,109,.25)',
@@ -70,11 +72,12 @@ export default function EditVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-            ️ {error}
+            <AlertTriangle size={16} /> {error}
           </div>
         )}
         {saved && (
           <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
             padding: '12px 16px',
             background: 'rgba(0,212,170,.1)',
             border: '1px solid rgba(0,212,170,.25)',
@@ -83,12 +86,14 @@ export default function EditVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-             Véhicule mis à jour ! Redirection...
+            <CheckCircle2 size={16} /> Véhicule mis à jour ! Redirection...
           </div>
         )}
         <div className="card">
           <div className="card-body">
             <VehicleForm
+              apiUrl={API_URL}
+              currentVehicleId={parseInt(id)}
               initialData={{
                 ...vehicle,
                 date_buy:           vehicle.date_buy  || '',
@@ -100,7 +105,7 @@ export default function EditVehicle() {
               }}
               onSubmit={handleSubmit}
               loading={saving}
-              submitLabel=" Enregistrer les modifications"
+              submitLabel="Enregistrer les modifications"
             />
           </div>
         </div>

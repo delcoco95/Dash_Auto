@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../../../components/Layout'
 import VehicleForm from '../../../components/VehicleForm'
+import QuickVehicleForm from '../../../components/QuickVehicleForm'
+import { AlertTriangle } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function NewVehicle() {
   const router = useRouter()
+  const [mode, setMode] = useState('express') // 'express' | 'complete'
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
@@ -34,12 +37,19 @@ export default function NewVehicle() {
   return (
     <Layout title="Ajouter un véhicule">
       <div className="page-header">
-        <h1 className="page-title"> Ajouter un véhicule</h1>
-        <p className="page-subtitle">Renseignez les informations du véhicule</p>
+        <div>
+          <h1 className="page-title">Ajouter un véhicule</h1>
+          <p className="page-subtitle">
+            {mode === 'express'
+              ? 'Le strict nécessaire pour créer la fiche — complétez le reste plus tard.'
+              : 'Formulaire complet — identité, financier, technique, notes.'}
+          </p>
+        </div>
       </div>
       <div className="page-body">
         {error && (
           <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
             padding: '12px 16px',
             background: 'rgba(255,77,109,.1)',
             border: '1px solid rgba(255,77,109,.25)',
@@ -48,16 +58,26 @@ export default function NewVehicle() {
             fontSize: 14,
             marginBottom: 20,
           }}>
-            ️ {error}
+            <AlertTriangle size={16} /> {error}
           </div>
         )}
         <div className="card">
           <div className="card-body">
-            <VehicleForm
-              onSubmit={handleSubmit}
-              loading={loading}
-              submitLabel=" Créer le véhicule"
-            />
+            {mode === 'express' ? (
+              <QuickVehicleForm
+                apiUrl={API_URL}
+                onSubmit={handleSubmit}
+                loading={loading}
+                onSwitchToFull={() => setMode('complete')}
+              />
+            ) : (
+              <VehicleForm
+                apiUrl={API_URL}
+                onSubmit={handleSubmit}
+                loading={loading}
+                submitLabel="Créer le véhicule"
+              />
+            )}
           </div>
         </div>
       </div>
