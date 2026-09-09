@@ -1298,18 +1298,19 @@ tr.row-warning td { background: var(--warning-light); }
     transform: translateX(-100%);
     transition: transform 0.3s ease;
     box-shadow: var(--shadow-hover);
+    padding-top: calc(24px + env(safe-area-inset-top));
   }
   .sidebar.open {
     transform: translateX(0);
   }
   .main-content {
     margin-left: 0;
-    padding: 0 16px 16px;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
   }
 
   /* Topbar */
   .topbar {
-    padding: 12px 0;
+    padding: calc(12px + env(safe-area-inset-top)) 0 12px;
     gap: 12px;
   }
   .search-bar-global {
