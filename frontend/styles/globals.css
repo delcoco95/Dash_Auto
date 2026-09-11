@@ -433,7 +433,7 @@ ul { list-style: none; }
 /* KPI Grid */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -481,6 +481,7 @@ ul { list-style: none; }
   font-size: 12px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -624,6 +625,7 @@ ul { list-style: none; }
   cursor: pointer;
   transition: all var(--transition);
   border: none;
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -833,7 +835,9 @@ ul { list-style: none; }
   border-bottom: 1px solid var(--border);
   margin-bottom: 24px;
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.tab-bar::-webkit-scrollbar { display: none; }
 .tab-btn {
   padding: 12px 20px;
   background: transparent;
@@ -847,6 +851,8 @@ ul { list-style: none; }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .tab-btn:hover {
   color: var(--text-primary);
@@ -1284,9 +1290,6 @@ tr.row-warning td { background: var(--warning-light); }
    RESPONSIVE DESIGN (Tablets & Mobile)
 ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .dashboard-grid-2 {
     grid-template-columns: 1fr;
   }
@@ -1376,13 +1379,38 @@ tr.row-warning td { background: var(--warning-light); }
   }
   .page-header > div:last-child {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
     width: 100%;
   }
   .page-header .btn {
-    flex: 1;
+    width: 100%;
     margin-right: 0 !important;
+  }
+
+  /* Onglets défilables (fiche véhicule, formulaire) : indice visuel de suite */
+  .tab-bar {
+    margin-bottom: 20px;
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  }
+  .tab-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  /* Barre de recherche globale : le raccourci clavier n'a pas de sens au toucher */
+  .search-shortcut-badge {
+    display: none;
+  }
+
+  /* KPI plus compacts pour limiter le défilement sur mobile */
+  .kpi-value {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .kpi-card-header {
+    margin-bottom: 12px;
   }
 }
 

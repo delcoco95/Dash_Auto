@@ -13,7 +13,7 @@ export const INT_PRIORITIES = ['haute', 'normale', 'basse']
 export default function InterventionForm({ vehicles, showVehicleSelect = false, onSubmit, onCancel, submitLabel = 'Ajouter' }) {
   const [form, setForm] = useState({
     title: '', category: '', status: 'à prévoir', priority: 'normale',
-    date_planned: '', cost_estimated: '', description: '', vehicle_id: '',
+    date_planned: '', cost_estimated: '', cost_actual: '', description: '', vehicle_id: '',
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -32,6 +32,7 @@ export default function InterventionForm({ vehicles, showVehicleSelect = false, 
         priority: form.priority,
         date_planned: form.date_planned || null,
         cost_estimated: form.cost_estimated ? parseFloat(form.cost_estimated) : null,
+        cost_actual: form.cost_actual ? parseFloat(form.cost_actual) : null,
         description: form.description || null,
         ...(showVehicleSelect ? { vehicle_id: parseInt(form.vehicle_id) } : {}),
       })
@@ -86,6 +87,10 @@ export default function InterventionForm({ vehicles, showVehicleSelect = false, 
         <div className="form-group">
           <label className="form-label">Coût estimé (€)</label>
           <input className="form-input" type="number" step="0.01" min="0" value={form.cost_estimated} onChange={e => set('cost_estimated', e.target.value)} placeholder="0.00" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Coût réel (€)</label>
+          <input className="form-input" type="number" step="0.01" min="0" value={form.cost_actual} onChange={e => set('cost_actual', e.target.value)} placeholder="Une fois les travaux terminés" />
         </div>
         <div className="form-group span-2">
           <label className="form-label">Description</label>

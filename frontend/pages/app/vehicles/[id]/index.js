@@ -218,6 +218,17 @@ export default function VehicleDetail() {
     mutI()
   }
 
+  const updateIntCostActual = async (iid, rawValue) => {
+    const cost_actual = rawValue === '' ? null : parseFloat(rawValue)
+    if (rawValue !== '' && Number.isNaN(cost_actual)) return
+    await fetch(`${API_URL}/interventions/${iid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cost_actual }),
+    })
+    mutI()
+  }
+
   const deleteIntervention = async (iid) => {
     const res = await fetch(`${API_URL}/interventions/${iid}`, { method: 'DELETE' })
     if (res.ok) { mutI(); toast('Intervention supprimée') }
@@ -245,8 +256,11 @@ export default function VehicleDetail() {
 
   const title = `${vehicle.brand} ${vehicle.model}${vehicle.version ? ` ${vehicle.version}` : ''}`
   const totalCharges = (charges || []).reduce((s, c) => s + c.amount, 0)
+  // Coût réel si connu, sinon estimation ; les travaux annulés ne comptent pas.
+  const interventionCost = (i) => i.status === 'annulée' ? 0 : (i.cost_actual ?? i.cost_estimated ?? 0)
+  const totalInterventions = (interventions || []).reduce((s, i) => s + interventionCost(i), 0)
   const profit = vehicle.price_sell != null && vehicle.price_buy != null
-    ? vehicle.price_sell - vehicle.price_buy - totalCharges : null
+    ? vehicle.price_sell - vehicle.price_buy - totalCharges - totalInterventions : null
 
   const customFields = (() => {
     try { return Object.entries(JSON.parse(vehicle.custom_fields || '{}')) } catch { return [] }
@@ -352,6 +366,7 @@ export default function VehicleDetail() {
                   <InfoItem label="Prix de vente"   value={fmt(vehicle.price_sell)} />
                   <InfoItem label="Valeur estimée"  value={fmt(vehicle.estimated_value)} />
                   <InfoItem label="Total charges"   value={fmt(totalCharges)} color="var(--danger)" />
+                  <InfoItem label="Total travaux"   value={fmt(totalInterventions)} color="var(--danger)" />
                   {profit !== null && (
                     <InfoItem label="Profit net"    value={fmt(profit)} color={profit >= 0 ? 'var(--success)' : 'var(--danger)'} />
                   )}
@@ -584,10 +599,17 @@ export default function VehicleDetail() {
           <div className="card">
             <div className="card-header">
               <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wrench size={18} /> Travaux & Interventions ({interventions?.length ?? 0})</span>
-              <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
-                onClick={() => setShowIntForm(s => !s)}>
-                <Plus size={14} /> Ajouter
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {interventions?.length > 0 && (
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>
+                    Total : {fmt(totalInterventions)}
+                  </span>
+                )}
+                <button className="btn btn-primary" style={{ fontSize: 13, padding: '6px 14px' }}
+                  onClick={() => setShowIntForm(s => !s)}>
+                  <Plus size={14} /> Ajouter
+                </button>
+              </div>
             </div>
             <div className="card-body">
               {showIntForm && (
@@ -615,7 +637,19 @@ export default function VehicleDetail() {
                           {i.category && <span>{i.category}</span>}
                           {i.date_planned && <span>Prévu le {fmtDate(i.date_planned)}</span>}
                           {i.cost_estimated != null && <span>Estimé : {fmt(i.cost_estimated)}</span>}
-                          {i.cost_actual != null && <span>Réel : {fmt(i.cost_actual)}</span>}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            Réel :
+                            <input
+                              className="form-input"
+                              type="number" step="0.01" min="0"
+                              style={{ fontSize: 12, padding: '2px 6px', width: 90 }}
+                              defaultValue={i.cost_actual ?? ''}
+                              placeholder="0.00"
+                              onBlur={e => e.target.value !== String(i.cost_actual ?? '') && updateIntCostActual(i.id, e.target.value)}
+                              title="Coût réel une fois les travaux terminés"
+                            />
+                            €
+                          </span>
                         </div>
                         {i.description && (
                           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>{i.description}</p>

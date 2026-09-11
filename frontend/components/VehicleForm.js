@@ -203,7 +203,7 @@ export default function VehicleForm({ initialData = {}, onSubmit, loading, submi
           }}>
             {fmt(parseFloat(form.price_sell) - parseFloat(form.price_buy))}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(hors charges)</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(hors charges et travaux)</span>
         </div>
       )}
 

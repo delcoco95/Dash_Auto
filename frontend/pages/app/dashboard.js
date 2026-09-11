@@ -170,6 +170,17 @@ export default function Dashboard() {
       items = charges
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .map(c => ({ id: c.id, date: c.date, title: c.description || c.category, amount: c.amount, type: 'negative' }))
+    } else if (activeModal === 'travaux' && interventions) {
+      items = interventions
+        .filter(i => i.status !== 'annulée' && (i.cost_actual != null || i.cost_estimated != null))
+        .sort((a, b) => new Date(b.date_planned) - new Date(a.date_planned))
+        .map(i => ({
+          id: i.id,
+          date: i.date_planned,
+          title: `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}`,
+          amount: i.cost_actual ?? i.cost_estimated,
+          type: 'negative',
+        }))
     }
 
     if (items.length === 0) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Aucune transaction trouvée.</div>
@@ -232,7 +243,7 @@ export default function Dashboard() {
           <div className="kpi-value">{fmt(profit)}</div>
           <div className="kpi-trend">
             <span className="kpi-trend-badge">{isProfitNeg ? '-' : '+'} Actuel</span>
-            Sur l'année en cours
+            Vente - achat - charges - travaux
           </div>
         </div>
 
@@ -266,6 +277,17 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="kpi-value">{fmt(stats.total_charges ?? 0)}</div>
+          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>Voir les transactions détaillées</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div className="kpi-title">Total Travaux</div>
+            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('travaux')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <ArrowUpRight size={16} color="var(--text-primary)" />
+            </button>
+          </div>
+          <div className="kpi-value">{fmt(stats.total_interventions ?? 0)}</div>
           <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>Voir les transactions détaillées</div>
         </div>
       </div>
@@ -381,6 +403,7 @@ export default function Dashboard() {
                 {activeModal === 'ventes' && 'Détail des Ventes'}
                 {activeModal === 'achats' && 'Détail des Achats'}
                 {activeModal === 'charges' && 'Détail des Charges'}
+                {activeModal === 'travaux' && 'Détail des Travaux'}
                 {activeModal === 'profit' && 'Analyse du Profit'}
               </h2>
               <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>

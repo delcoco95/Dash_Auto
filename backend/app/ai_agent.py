@@ -1,5 +1,6 @@
 import os
 from . import models
+from .finance import intervention_cost
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ def gather_context(db: Session, query: str):
     # Collect recent vehicles, top/worst, and expenses
     vehicles = db.query(models.Vehicle).limit(200).all()
     charges = db.query(models.Charge).limit(500).all()
+    interventions = db.query(models.Intervention).limit(500).all()
 
     veh_summaries = []
     for v in vehicles:
@@ -34,10 +36,21 @@ def gather_context(db: Session, query: str):
     for c in charges:
         charge_summaries.append({'vehicle_id': c.vehicle_id, 'category': c.category, 'amount': c.amount})
 
+    intervention_summaries = []
+    for i in interventions:
+        intervention_summaries.append({
+            'vehicle_id': i.vehicle_id,
+            'category': i.category,
+            'status': i.status,
+            'cost_estimated': i.cost_estimated,
+            'cost_actual': i.cost_actual,
+        })
+
     return {
         'query': query,
         'vehicles': veh_summaries,
-        'charges': charge_summaries
+        'charges': charge_summaries,
+        'interventions': intervention_summaries,
     }
 
 
@@ -45,10 +58,15 @@ def local_analysis(context: dict):
     # Simple heuristics: identify vehicles with negative profit, high charges relative to buy price
     vehicles = context['vehicles']
     charges = context['charges']
+    interventions = context.get('interventions', [])
     charge_by_vehicle = {}
     for c in charges:
         charge_by_vehicle.setdefault(c['vehicle_id'], 0.0)
         charge_by_vehicle[c['vehicle_id']] += c['amount']
+
+    for i in interventions:
+        charge_by_vehicle.setdefault(i['vehicle_id'], 0.0)
+        charge_by_vehicle[i['vehicle_id']] += intervention_cost(i['status'], i['cost_estimated'], i['cost_actual'])
 
     analysis = []
     for v in vehicles:

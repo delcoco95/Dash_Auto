@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date, datetime
+# Alias : plusieurs modèles ont un champ nommé "date" ; annoter ce champ avec
+# le type "date" tel quel fait que Pydantic résout l'annotation vers l'attribut
+# de classe (la valeur du champ) au lieu du type importé, et casse la validation.
+from datetime import date as _date, datetime
 
 
 # ══════════════════════════════════════════════════════════════
@@ -23,17 +26,17 @@ class VehicleBase(BaseModel):
     seats: Optional[int] = None
     # Financier
     km: Optional[int] = None
-    date_buy: Optional[date] = None
+    date_buy: Optional[_date] = None
     price_buy: Optional[float] = None
-    date_sell: Optional[date] = None
+    date_sell: Optional[_date] = None
     price_sell: Optional[float] = None
     estimated_value: Optional[float] = None
     status: Optional[str] = 'en stock'
     # Technique
-    date_last_service: Optional[date] = None
-    date_next_service: Optional[date] = None
-    date_last_ct: Optional[date] = None
-    date_next_ct: Optional[date] = None
+    date_last_service: Optional[_date] = None
+    date_next_service: Optional[_date] = None
+    date_last_ct: Optional[_date] = None
+    date_next_ct: Optional[_date] = None
     engine_state: Optional[str] = None
     body_state: Optional[str] = None
     tire_state: Optional[str] = None
@@ -63,16 +66,16 @@ class VehicleUpdate(BaseModel):
     doors: Optional[int] = None
     seats: Optional[int] = None
     km: Optional[int] = None
-    date_buy: Optional[date] = None
+    date_buy: Optional[_date] = None
     price_buy: Optional[float] = None
-    date_sell: Optional[date] = None
+    date_sell: Optional[_date] = None
     price_sell: Optional[float] = None
     estimated_value: Optional[float] = None
     status: Optional[str] = None
-    date_last_service: Optional[date] = None
-    date_next_service: Optional[date] = None
-    date_last_ct: Optional[date] = None
-    date_next_ct: Optional[date] = None
+    date_last_service: Optional[_date] = None
+    date_next_service: Optional[_date] = None
+    date_last_ct: Optional[_date] = None
+    date_next_ct: Optional[_date] = None
     engine_state: Optional[str] = None
     body_state: Optional[str] = None
     tire_state: Optional[str] = None
@@ -102,8 +105,8 @@ class InterventionBase(BaseModel):
     category: Optional[str] = None
     status: Optional[str] = 'à prévoir'
     priority: Optional[str] = 'normale'
-    date_planned: Optional[date] = None
-    date_done: Optional[date] = None
+    date_planned: Optional[_date] = None
+    date_done: Optional[_date] = None
     cost_estimated: Optional[float] = None
     cost_actual: Optional[float] = None
     comments: Optional[str] = None
@@ -119,8 +122,8 @@ class InterventionUpdate(BaseModel):
     category: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
-    date_planned: Optional[date] = None
-    date_done: Optional[date] = None
+    date_planned: Optional[_date] = None
+    date_done: Optional[_date] = None
     cost_estimated: Optional[float] = None
     cost_actual: Optional[float] = None
     comments: Optional[str] = None
@@ -141,7 +144,7 @@ class ChargeBase(BaseModel):
     vehicle_id: int
     category: str
     amount: float
-    date: Optional[date] = None
+    date: Optional[_date] = None
     description: Optional[str] = None
 
 
@@ -152,7 +155,7 @@ class ChargeCreate(ChargeBase):
 class ChargeUpdate(BaseModel):
     category: Optional[str] = None
     amount: Optional[float] = None
-    date: Optional[date] = None
+    date: Optional[_date] = None
     description: Optional[str] = None
 
 
@@ -197,8 +200,8 @@ class DocumentBase(BaseModel):
     type: Optional[str] = None
     url: Optional[str] = None
     category: Optional[str] = None
-    date: Optional[date] = None
-    expiration_date: Optional[date] = None
+    date: Optional[_date] = None
+    expiration_date: Optional[_date] = None
     amount: Optional[float] = None
     description: Optional[str] = None
     status: Optional[str] = 'valide'
@@ -213,8 +216,8 @@ class DocumentUpdate(BaseModel):
     vehicle_id: Optional[int] = None
     name: Optional[str] = None
     category: Optional[str] = None
-    date: Optional[date] = None
-    expiration_date: Optional[date] = None
+    date: Optional[_date] = None
+    expiration_date: Optional[_date] = None
     amount: Optional[float] = None
     description: Optional[str] = None
     status: Optional[str] = None

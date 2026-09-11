@@ -400,29 +400,3 @@ def delete_event(event_id: int, db=Depends(get_db)):
     if not crud.delete_event(db, event_id):
         raise HTTPException(status_code=404, detail="Evénement non trouvé")
     return {"message": "Evénement supprimé"}
-
-
-# ══════════════════════════════════════════════════════════════
-# INTERVENTIONS
-# ══════════════════════════════════════════════════════════════
-
-@app.get("/interventions", response_model=List[schemas.InterventionRead])
-def list_interventions(skip: int = 0, limit: int = 200, db=Depends(get_db)):
-    return crud.get_interventions(db, skip, limit)
-
-@app.post("/interventions", response_model=schemas.InterventionRead, status_code=201)
-def create_intervention(i: schemas.InterventionCreate, db=Depends(get_db)):
-    return crud.create_intervention(db, i)
-
-@app.put("/interventions/{intervention_id}", response_model=schemas.InterventionRead)
-def update_intervention(intervention_id: int, data: schemas.InterventionUpdate, db=Depends(get_db)):
-    result = crud.update_intervention(db, intervention_id, data)
-    if not result:
-        raise HTTPException(status_code=404, detail="Intervention non trouvée")
-    return result
-
-@app.delete("/interventions/{intervention_id}")
-def delete_intervention(intervention_id: int, db=Depends(get_db)):
-    if not crud.delete_intervention(db, intervention_id):
-        raise HTTPException(status_code=404, detail="Intervention non trouvée")
-    return {"message": "Intervention supprimée"}

@@ -174,12 +174,12 @@ export default function Layout({ children, title = 'Dash Auto' }) {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Rechercher un véhicule (marque, modèle, immatriculation)..."
+                  placeholder="Rechercher un véhicule..."
                   value={query}
                   onChange={e => { setQuery(e.target.value); setShowResults(true) }}
                   onFocus={() => query && setShowResults(true)}
                 />
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
+                <div className="search-shortcut-badge" style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px' }}>
                   ⌘ F
                 </div>
 

@@ -89,14 +89,6 @@ def delete_vehicle(db: Session, vehicle_id: int) -> bool:
 # INTERVENTIONS
 # ══════════════════════════════════════════════════════════════
 
-def create_intervention(db: Session, i: schemas.InterventionCreate):
-    db_i = models.Intervention(**i.model_dump())
-    db.add(db_i)
-    db.commit()
-    db.refresh(db_i)
-    return db_i
-
-
 def get_interventions_by_vehicle(db: Session, vehicle_id: int):
     return (
         db.query(models.Intervention)
@@ -104,26 +96,6 @@ def get_interventions_by_vehicle(db: Session, vehicle_id: int):
         .order_by(models.Intervention.date_planned)
         .all()
     )
-
-
-def update_intervention(db: Session, intervention_id: int, data: schemas.InterventionUpdate):
-    i = db.query(models.Intervention).filter(models.Intervention.id == intervention_id).first()
-    if not i:
-        return None
-    for key, val in data.model_dump(exclude_unset=True).items():
-        setattr(i, key, val)
-    db.commit()
-    db.refresh(i)
-    return i
-
-
-def delete_intervention(db: Session, intervention_id: int) -> bool:
-    i = db.query(models.Intervention).filter(models.Intervention.id == intervention_id).first()
-    if not i:
-        return False
-    db.delete(i)
-    db.commit()
-    return True
 
 
 # ══════════════════════════════════════════════════════════════
