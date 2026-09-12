@@ -32,7 +32,7 @@ GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 API_BASE_URL = os.environ["DASH_API_BASE_URL"].rstrip("/")
 API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
 
 DEFAULT_KEYWORDS = [
     "véhicule", "vehicule", "voiture", "achat", "entretien", "réparation", "reparation",

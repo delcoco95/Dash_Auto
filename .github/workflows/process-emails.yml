@@ -24,3 +24,4 @@ jobs:
           DASH_API_BASE_URL: ${{ secrets.DASH_API_BASE_URL }}
           DASH_API_KEY: ${{ secrets.DASH_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
