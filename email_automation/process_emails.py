@@ -141,12 +141,18 @@ def has_relevant_signal(data: dict) -> bool:
         any(event.get(k) for k in ("date", "mileage", "description", "garage", "amount"))
 
 
-def already_processed(message_id: str) -> bool:
+FINAL_STATUSES = {"processed", "needs_review", "skipped"}
+
+
+def existing_log_status(message_id: str):
     r = requests.get(
         f"{API_BASE_URL}/automation/processed-emails/{quote(message_id, safe='')}",
         headers=api_headers(), timeout=20,
     )
-    return r.status_code == 200
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()["status"]
 
 
 def create_log_entry(message_id: str):
@@ -252,12 +258,16 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
     subject = decode_mime_words(msg.get("Subject", ""))
     body, attachments = extract_body_and_attachments(msg)
 
-    if already_processed(message_id):
-        print(f"  [SKIP] déjà traité : {subject!r}")
+    status = existing_log_status(message_id)
+    if status in FINAL_STATUSES:
+        print(f"  [SKIP] déjà traité ({status}) : {subject!r}")
         return
 
-    print(f"  [TRAITEMENT] {subject!r}")
-    create_log_entry(message_id)
+    print(f"  [TRAITEMENT] {subject!r}" + (" (nouvel essai)" if status else ""))
+    if status is None:
+        create_log_entry(message_id)
+    else:
+        update_log_entry(message_id, status="processing", error_message=None)
 
     try:
         data = extract_structured_data(subject, body, attachments)
