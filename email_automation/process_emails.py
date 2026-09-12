@@ -246,14 +246,17 @@ def upload_attachments(vehicle_id: int, category: str, attachments: list):
         ).raise_for_status()
 
 
-def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
+def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
+    """Retourne True si le mail peut être marqué comme lu (statut définitif
+    atteint), False s'il doit rester non lu pour être retenté au prochain
+    passage (ex. erreur transitoire de l'API IA ou du dashboard)."""
     _, msg_data = imap.fetch(num, "(RFC822)")
     msg = email.message_from_bytes(msg_data[0][1])
 
     message_id = (msg.get("Message-ID") or "").strip()
     if not message_id:
         print("  [IGNORÉ] mail sans Message-ID exploitable")
-        return  # rien de fiable pour l'anti-doublon, on ignore
+        return True  # rien de fiable pour l'anti-doublon, inutile de retenter
 
     subject = decode_mime_words(msg.get("Subject", ""))
     body, attachments = extract_body_and_attachments(msg)
@@ -261,7 +264,7 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
     status = existing_log_status(message_id)
     if status in FINAL_STATUSES:
         print(f"  [SKIP] déjà traité ({status}) : {subject!r}")
-        return
+        return True
 
     print(f"  [TRAITEMENT] {subject!r}" + (" (nouvel essai)" if status else ""))
     if status is None:
@@ -276,7 +279,7 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
             update_log_entry(message_id, status="skipped", event_type=data.get("type"),
                               extracted_json=json.dumps(data, ensure_ascii=False))
             print("    -> skipped (aucune information véhicule détectée)")
-            return
+            return True
 
         vehicle_id, reason = find_or_create_vehicle(data.get("vehicle") or {})
 
@@ -284,7 +287,7 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
             update_log_entry(message_id, status="needs_review", error_message=reason,
                               event_type=data.get("type"), extracted_json=json.dumps(data, ensure_ascii=False))
             print(f"    -> needs_review ({reason})")
-            return
+            return True
 
         update_log_entry(message_id, vehicle_id=vehicle_id)
 
@@ -300,10 +303,12 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
             update_log_entry(message_id, status="needs_review", error_message=result.get("reason"),
                               event_type=event_type, extracted_json=json.dumps(data, ensure_ascii=False))
             print(f"    -> needs_review ({result.get('reason')})")
+        return True
 
     except Exception as exc:  # noqa: BLE001 - on isole l'erreur par e-mail
         update_log_entry(message_id, status="error", error_message=str(exc)[:2000])
-        print(f"    -> ERROR : {exc}")
+        print(f"    -> ERROR (nouvel essai au prochain passage) : {exc}")
+        return False
 
 
 def main():
@@ -316,9 +321,7 @@ def main():
     print(f"{len(message_nums)} e-mail(s) non lu(s) à examiner")
 
     for num in message_nums:
-        try:
-            process_message(num, imap)
-        finally:
+        if process_message(num, imap):
             imap.store(num, "+FLAGS", "\\Seen")
 
     imap.close()
