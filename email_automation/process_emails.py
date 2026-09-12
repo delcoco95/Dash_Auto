@@ -12,8 +12,13 @@ Variables d'environnement attendues (voir .github/workflows/process-emails.yml) 
   DASH_API_BASE_URL    - ex. https://dash-auto.onrender.com
   DASH_API_KEY         - la clé AUTOMATION_API_KEY du backend
   GEMINI_API_KEY       - clé Google AI Studio, gratuite (aistudio.google.com/apikey)
-  GEMINI_MODEL         - optionnel, défaut gemini-2.0-flash
-  EMAIL_KEYWORDS       - optionnel, liste séparée par des virgules
+  GEMINI_MODEL         - optionnel, défaut gemini-flash-latest
+
+Pas de filtre par mots-clés : les objets réels (juste un nom de véhicule, une
+note perso abrégée...) sont trop imprévisibles pour ça. Chaque e-mail non lu
+est envoyé tel quel à Gemini (texte + pièces jointes PDF/image, qu'il sait
+lire nativement), qui décide lui-même de la pertinence via son champ
+"confidence" et des champs vehicle/event laissés à null.
 """
 import base64
 import email
@@ -34,19 +39,26 @@ API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
 
-DEFAULT_KEYWORDS = [
-    "véhicule", "vehicule", "voiture", "achat", "entretien", "réparation", "reparation",
-    "facture", "vidange", "contrôle technique", "controle technique", "assurance",
-    "immatriculation", "vin", "garage", "révision", "revision",
-]
-KEYWORDS = [k.strip().lower() for k in os.getenv("EMAIL_KEYWORDS", "").split(",") if k.strip()] or DEFAULT_KEYWORDS
-
 ALLOWED_ATTACHMENT_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
+GEMINI_INLINE_MIME = {
+    "application/pdf": "application/pdf",
+    "image/jpeg": "image/jpeg",
+    "image/jpg": "image/jpeg",
+    "image/png": "image/png",
+}
+MAX_INLINE_ATTACHMENT_BYTES = 15 * 1024 * 1024
 
-EXTRACTION_PROMPT = """Tu analyses un e-mail concernant un véhicule automobile.
+EXTRACTION_PROMPT = """Tu analyses un e-mail reçu dans la boîte d'une personne qui achète, entretient
+et revend des véhicules d'occasion. Le mail peut être une vraie facture, une
+notification d'un garage/assureur, une note personnelle abrégée, ou n'avoir
+aucun rapport avec un véhicule.
 
 Objet : {subject}
 Corps : {body}
+
+Des pièces jointes (PDF/image) sont éventuellement fournies avec ce message :
+utilise-les pour compléter les informations si le corps du mail est vide ou
+incomplet.
 
 Réponds UNIQUEMENT avec un objet JSON respectant exactement ce schéma :
 {{
@@ -70,6 +82,9 @@ Réponds UNIQUEMENT avec un objet JSON respectant exactement ce schéma :
 
 Règles strictes :
 - N'invente et ne déduis JAMAIS une valeur absente : mets null.
+- Si le mail n'a manifestement aucun rapport avec un véhicule (spam, newsletter,
+  correspondance personnelle...), laisse tous les champs vehicle/event à null
+  et mets "confidence" proche de 0.
 - "confidence" reflète ta certitude globale entre 0 et 1.
 - Aucun champ supplémentaire, aucun commentaire, aucun texte hors JSON.
 """
@@ -120,9 +135,10 @@ def extract_body_and_attachments(msg: email.message.Message):
     return (body_text or strip_html(html_fallback)), attachments
 
 
-def matches_keywords(subject: str, body: str) -> bool:
-    haystack = f"{subject} {body}".lower()
-    return any(kw in haystack for kw in KEYWORDS)
+def has_relevant_signal(data: dict) -> bool:
+    vehicle, event = data.get("vehicle") or {}, data.get("event") or {}
+    return any(vehicle.get(k) for k in ("registration", "vin", "brand", "model", "year")) or \
+        any(event.get(k) for k in ("date", "mileage", "description", "garage", "amount"))
 
 
 def already_processed(message_id: str) -> bool:
@@ -149,15 +165,21 @@ def update_log_entry(message_id: str, **fields):
     ).raise_for_status()
 
 
-def extract_structured_data(subject: str, body: str) -> dict:
+def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
+    parts = [{"text": EXTRACTION_PROMPT.format(subject=subject, body=body[:6000])}]
+    for att in attachments:
+        mime = GEMINI_INLINE_MIME.get(att["content_type"])
+        if mime and len(att["content"]) <= MAX_INLINE_ATTACHMENT_BYTES:
+            parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(att["content"]).decode("ascii")}})
+
     r = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
         params={"key": GEMINI_API_KEY},
         json={
-            "contents": [{"parts": [{"text": EXTRACTION_PROMPT.format(subject=subject, body=body[:6000])}]}],
+            "contents": [{"parts": parts}],
             "generationConfig": {"response_mime_type": "application/json"},
         },
-        timeout=30,
+        timeout=60,
     )
     r.raise_for_status()
     text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -230,10 +252,6 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
     subject = decode_mime_words(msg.get("Subject", ""))
     body, attachments = extract_body_and_attachments(msg)
 
-    if not matches_keywords(subject, body):
-        print(f"  [IGNORÉ] aucun mot-clé véhicule : {subject!r}")
-        return
-
     if already_processed(message_id):
         print(f"  [SKIP] déjà traité : {subject!r}")
         return
@@ -242,7 +260,14 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
     create_log_entry(message_id)
 
     try:
-        data = extract_structured_data(subject, body)
+        data = extract_structured_data(subject, body, attachments)
+
+        if not has_relevant_signal(data):
+            update_log_entry(message_id, status="skipped", event_type=data.get("type"),
+                              extracted_json=json.dumps(data, ensure_ascii=False))
+            print("    -> skipped (aucune information véhicule détectée)")
+            return
+
         vehicle_id, reason = find_or_create_vehicle(data.get("vehicle") or {})
 
         if reason:
