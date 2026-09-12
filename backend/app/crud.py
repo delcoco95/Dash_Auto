@@ -1,6 +1,6 @@
 import os
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import Optional
 from . import models, schemas
 
@@ -351,3 +351,47 @@ def delete_intervention(db: Session, intervention_id: int):
     db.delete(i)
     db.commit()
     return True
+
+
+# ══════════════════════════════════════════════════════════════
+# AUTOMATION (flux Power Automate / Gmail)
+# ══════════════════════════════════════════════════════════════
+
+def find_vehicle_exact(db: Session, registration: Optional[str] = None, vin: Optional[str] = None):
+    """Recherche un véhicule par correspondance exacte (insensible à la casse)
+    sur l'immatriculation ou le VIN, contrairement à `get_vehicles(search=...)`
+    qui fait une correspondance partielle sur plusieurs colonnes."""
+    q = db.query(models.Vehicle)
+    clauses = []
+    if registration:
+        clauses.append(func.lower(models.Vehicle.registration) == registration.lower())
+    if vin:
+        clauses.append(func.lower(models.Vehicle.vin) == vin.lower())
+    if not clauses:
+        return None
+    return q.filter(or_(*clauses)).first()
+
+
+def get_processed_email(db: Session, gmail_message_id: str):
+    return db.query(models.ProcessedEmail).filter(
+        models.ProcessedEmail.gmail_message_id == gmail_message_id
+    ).first()
+
+
+def create_processed_email(db: Session, data: schemas.ProcessedEmailCreate):
+    entry = models.ProcessedEmail(**data.model_dump())
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def update_processed_email(db: Session, gmail_message_id: str, data: schemas.ProcessedEmailUpdate):
+    entry = get_processed_email(db, gmail_message_id)
+    if not entry:
+        return None
+    for key, val in data.model_dump(exclude_unset=True).items():
+        setattr(entry, key, val)
+    db.commit()
+    db.refresh(entry)
+    return entry

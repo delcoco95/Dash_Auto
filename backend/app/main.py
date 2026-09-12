@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_agent, auth, crud, schemas, statistics
+from . import ai_agent, auth, automation, crud, schemas, statistics
 from .database import get_db, init_db
 
 app = FastAPI(title="Dash Auto API", version="2.0")
@@ -28,6 +28,8 @@ init_db()
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+app.include_router(automation.router)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf',
                       '.doc', '.docx', '.xls', '.xlsx', '.csv'}

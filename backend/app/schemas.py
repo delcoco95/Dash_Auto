@@ -267,3 +267,75 @@ class EventRead(EventBase):
 
     class Config:
         from_attributes = True
+
+
+# ══════════════════════════════════════════════════════════════
+# AUTOMATION (flux Power Automate / Gmail)
+# ══════════════════════════════════════════════════════════════
+
+class VehicleLookupRequest(BaseModel):
+    registration: Optional[str] = None
+    vin: Optional[str] = None
+
+
+class VehicleLookupResponse(BaseModel):
+    exists: bool
+    vehicle_id: Optional[int] = None
+
+
+class AutomationEventCreate(BaseModel):
+    type: str  # purchase | maintenance | repair | inspection | insurance | document | other
+    date: Optional[_date] = None
+    mileage: Optional[int] = None
+    description: Optional[str] = None
+    garage: Optional[str] = None
+    amount: Optional[float] = None
+
+
+class AutomationEventResult(BaseModel):
+    handled: bool
+    entity: Optional[str] = None  # intervention | charge | none
+    entity_id: Optional[int] = None
+    reason: Optional[str] = None
+
+
+class AutomationDocumentCreate(BaseModel):
+    name: str
+    type: str = "application/octet-stream"  # MIME type
+    content_base64: str
+    category: Optional[str] = None
+    date: Optional[_date] = None
+    amount: Optional[float] = None
+    description: Optional[str] = None
+
+
+class ProcessedEmailCreate(BaseModel):
+    gmail_message_id: str
+    status: Optional[str] = 'processing'
+    vehicle_id: Optional[int] = None
+    event_type: Optional[str] = None
+    error_message: Optional[str] = None
+    extracted_json: Optional[str] = None
+
+
+class ProcessedEmailUpdate(BaseModel):
+    status: Optional[str] = None
+    vehicle_id: Optional[int] = None
+    event_type: Optional[str] = None
+    error_message: Optional[str] = None
+    extracted_json: Optional[str] = None
+
+
+class ProcessedEmailRead(BaseModel):
+    id: int
+    gmail_message_id: str
+    status: str
+    vehicle_id: Optional[int] = None
+    event_type: Optional[str] = None
+    error_message: Optional[str] = None
+    extracted_json: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

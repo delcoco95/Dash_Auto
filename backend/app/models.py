@@ -134,6 +134,20 @@ class User(Base):
     name = Column(String, nullable=True)
     role = Column(String, default='user')
 
+class ProcessedEmail(Base):
+    """Suivi des e-mails Gmail traités par l'automatisation (anti-doublon + journal)."""
+    __tablename__ = 'processed_emails'
+    id = Column(Integer, primary_key=True, index=True)
+    gmail_message_id = Column(String, unique=True, index=True)
+    status = Column(String, default='processing')  # processing, processed, needs_review, error, skipped
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='SET NULL'), nullable=True)
+    event_type = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    extracted_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Event(Base):
     __tablename__ = 'events'
     id = Column(Integer, primary_key=True, index=True)
