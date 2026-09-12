@@ -224,12 +224,14 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL):
 
     message_id = (msg.get("Message-ID") or "").strip()
     if not message_id:
+        print("  [IGNORÉ] mail sans Message-ID exploitable")
         return  # rien de fiable pour l'anti-doublon, on ignore
 
     subject = decode_mime_words(msg.get("Subject", ""))
     body, attachments = extract_body_and_attachments(msg)
 
     if not matches_keywords(subject, body):
+        print(f"  [IGNORÉ] aucun mot-clé véhicule : {subject!r}")
         return
 
     if already_processed(message_id):
