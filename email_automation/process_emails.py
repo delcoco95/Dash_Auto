@@ -38,7 +38,7 @@ GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 API_BASE_URL = os.environ["DASH_API_BASE_URL"].rstrip("/")
 API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
 
 ALLOWED_ATTACHMENT_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 GEMINI_INLINE_MIME = {
