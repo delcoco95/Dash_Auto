@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+import time
 from email.header import decode_header
 from urllib.parse import quote
 
@@ -37,7 +38,7 @@ GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 API_BASE_URL = os.environ["DASH_API_BASE_URL"].rstrip("/")
 API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
 
 ALLOWED_ATTACHMENT_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 GEMINI_INLINE_MIME = {
@@ -178,18 +179,29 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
         if mime and len(att["content"]) <= MAX_INLINE_ATTACHMENT_BYTES:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(att["content"]).decode("ascii")}})
 
-    r = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-        params={"key": GEMINI_API_KEY},
-        json={
-            "contents": [{"parts": parts}],
-            "generationConfig": {"response_mime_type": "application/json"},
-        },
-        timeout=60,
-    )
-    r.raise_for_status()
-    text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(text)
+    last_exc = None
+    for attempt, delay in enumerate((0, 3, 8)):
+        if delay:
+            print(f"    (Gemini indisponible, nouvel essai dans {delay}s...)")
+            time.sleep(delay)
+        try:
+            r = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+                params={"key": GEMINI_API_KEY},
+                json={
+                    "contents": [{"parts": parts}],
+                    "generationConfig": {"response_mime_type": "application/json"},
+                },
+                timeout=60,
+            )
+            r.raise_for_status()
+            text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(text)
+        except requests.HTTPError as exc:
+            last_exc = exc
+            if exc.response is None or exc.response.status_code < 500:
+                raise  # erreur définitive (clé invalide, requête malformée...) : inutile de retenter
+    raise last_exc
 
 
 def find_or_create_vehicle(vehicle: dict):
