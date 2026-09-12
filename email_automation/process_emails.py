@@ -204,11 +204,17 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
     raise last_exc
 
 
-def find_or_create_vehicle(vehicle: dict):
-    """Retourne (vehicle_id, needs_review_reason)."""
+def find_or_create_vehicle(vehicle: dict, purchase_event: dict | None = None):
+    """Retourne (vehicle_id, needs_review_reason, was_created).
+
+    Si `purchase_event` est fourni (mail de type "purchase") ET que le
+    véhicule est créé ici pour la première fois, son prix/date d'achat sont
+    enregistrés directement à la création — sans risque puisqu'il n'existait
+    pas encore. Un véhicule déjà existant n'est jamais modifié de cette façon
+    (voir create_event / needs_review pour ce cas)."""
     registration, vin = vehicle.get("registration"), vehicle.get("vin")
     if not registration and not vin:
-        return None, "ni immatriculation ni VIN identifiés"
+        return None, "ni immatriculation ni VIN identifiés", False
 
     lookup = requests.post(
         f"{API_BASE_URL}/automation/vehicles/lookup",
@@ -217,20 +223,24 @@ def find_or_create_vehicle(vehicle: dict):
     lookup.raise_for_status()
     data = lookup.json()
     if data["exists"]:
-        return data["vehicle_id"], None
+        return data["vehicle_id"], None, False
 
     if not vehicle.get("brand") or not vehicle.get("model"):
-        return None, "véhicule inconnu et marque/modèle manquants pour le créer"
+        return None, "véhicule inconnu et marque/modèle manquants pour le créer", False
 
-    created = requests.post(
-        f"{API_BASE_URL}/automation/vehicles", headers=api_headers(),
-        json={
-            "brand": vehicle["brand"], "model": vehicle["model"], "year": vehicle.get("year"),
-            "registration": registration, "vin": vin,
-        }, timeout=20,
-    )
+    payload = {
+        "brand": vehicle["brand"], "model": vehicle["model"], "year": vehicle.get("year"),
+        "registration": registration, "vin": vin,
+    }
+    if purchase_event:
+        if purchase_event.get("amount") is not None:
+            payload["price_buy"] = purchase_event["amount"]
+        if purchase_event.get("date"):
+            payload["date_buy"] = purchase_event["date"]
+
+    created = requests.post(f"{API_BASE_URL}/automation/vehicles", headers=api_headers(), json=payload, timeout=20)
     created.raise_for_status()
-    return created.json()["id"], None
+    return created.json()["id"], None, True
 
 
 def create_event(vehicle_id: int, event_type: str, event: dict) -> dict:
@@ -293,18 +303,28 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
             print("    -> skipped (aucune information véhicule détectée)")
             return True
 
-        vehicle_id, reason = find_or_create_vehicle(data.get("vehicle") or {})
+        event_type = data.get("type") or "other"
+        event = data.get("event") or {}
+        purchase_event = event if event_type == "purchase" else None
+        vehicle_id, reason, was_created = find_or_create_vehicle(data.get("vehicle") or {}, purchase_event)
 
         if reason:
             update_log_entry(message_id, status="needs_review", error_message=reason,
-                              event_type=data.get("type"), extracted_json=json.dumps(data, ensure_ascii=False))
+                              event_type=event_type, extracted_json=json.dumps(data, ensure_ascii=False))
             print(f"    -> needs_review ({reason})")
             return True
 
         update_log_entry(message_id, vehicle_id=vehicle_id)
 
-        event_type = data.get("type") or "other"
-        result = create_event(vehicle_id, event_type, data.get("event") or {})
+        if event_type == "purchase" and was_created:
+            # Prix/date d'achat déjà enregistrés à la création du véhicule ci-dessus.
+            update_log_entry(message_id, status="processed", event_type=event_type,
+                              extracted_json=json.dumps(data, ensure_ascii=False))
+            upload_attachments(vehicle_id, event_type, attachments)
+            print(f"    -> processed (véhicule {vehicle_id} créé avec prix d'achat)")
+            return True
+
+        result = create_event(vehicle_id, event_type, event)
         upload_attachments(vehicle_id, event_type, attachments)
 
         if result["handled"] or event_type == "document":
