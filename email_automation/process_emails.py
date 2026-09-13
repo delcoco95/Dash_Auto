@@ -40,6 +40,10 @@ API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL") or "gemini-flash-lite-latest"
+# Optionnel : dernier filet de secours, chez un fournisseur différent de Google
+# (donc un quota séparé). Si absent, ce palier est simplement ignoré.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") or None
+GROQ_MODEL = os.getenv("GROQ_MODEL") or "openai/gpt-oss-20b"
 
 ALLOWED_ATTACHMENT_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 GEMINI_INLINE_MIME = {
@@ -246,6 +250,24 @@ def _call_gemini(model: str, parts: list) -> dict:
     return json.loads(text)
 
 
+def _call_groq(subject: str, body: str) -> dict:
+    """Dernier filet de secours chez un fournisseur différent de Google (quota
+    séparé). Texte seul : contrairement à Gemini, les pièces jointes PDF/image
+    ne sont pas lues à ce palier — mieux vaut une extraction partielle que rien."""
+    r = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+        json={
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": EXTRACTION_PROMPT.format(subject=subject, body=body[:6000])}],
+            "response_format": {"type": "json_object"},
+        },
+        timeout=60,
+    )
+    r.raise_for_status()
+    return json.loads(r.json()["choices"][0]["message"]["content"])
+
+
 def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
     parts = [{"text": EXTRACTION_PROMPT.format(subject=subject, body=body[:6000])}]
     for att in attachments:
@@ -254,9 +276,10 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(att["content"]).decode("ascii")}})
 
     # 3 essais sur le modèle principal (503 = surcharge, 429 = quota atteint,
-    # tous deux courants sur le niveau gratuit), puis un dernier essai sur un
-    # modèle de secours différent (quota séparé) avant d'abandonner pour ce
-    # passage (le mail restera non lu et sera retenté au prochain cron).
+    # tous deux courants sur le niveau gratuit), un essai sur un second modèle
+    # Gemini (quota séparé), puis en dernier recours un fournisseur totalement
+    # différent (Groq, si configuré) avant d'abandonner pour ce passage (le
+    # mail restera non lu et sera retenté au prochain cron).
     attempts = [(GEMINI_MODEL, 0), (GEMINI_MODEL, 3), (GEMINI_MODEL, 8), (GEMINI_FALLBACK_MODEL, 5)]
     last_exc = None
     for model, delay in attempts:
@@ -270,6 +293,10 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
             status = exc.response.status_code if exc.response is not None else None
             if status not in (429, 500, 502, 503, 504):
                 raise  # erreur définitive (clé invalide, requête malformée...) : inutile de retenter
+
+    if GROQ_API_KEY:
+        print(f"    (Gemini indisponible après tous les essais, bascule sur Groq/{GROQ_MODEL}...)")
+        return _call_groq(subject, body)
     raise last_exc
 
 
