@@ -253,10 +253,10 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
         if mime and len(att["content"]) <= MAX_INLINE_ATTACHMENT_BYTES:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(att["content"]).decode("ascii")}})
 
-    # 3 essais sur le modèle principal (surcharges transitoires courantes sur le
-    # niveau gratuit), puis un dernier essai sur un modèle de secours différent
-    # avant d'abandonner pour ce passage (le mail restera non lu et sera retenté
-    # automatiquement au prochain passage du cron).
+    # 3 essais sur le modèle principal (503 = surcharge, 429 = quota atteint,
+    # tous deux courants sur le niveau gratuit), puis un dernier essai sur un
+    # modèle de secours différent (quota séparé) avant d'abandonner pour ce
+    # passage (le mail restera non lu et sera retenté au prochain cron).
     attempts = [(GEMINI_MODEL, 0), (GEMINI_MODEL, 3), (GEMINI_MODEL, 8), (GEMINI_FALLBACK_MODEL, 5)]
     last_exc = None
     for model, delay in attempts:
@@ -267,7 +267,8 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
             return _call_gemini(model, parts)
         except requests.HTTPError as exc:
             last_exc = exc
-            if exc.response is None or exc.response.status_code < 500:
+            status = exc.response.status_code if exc.response is not None else None
+            if status not in (429, 500, 502, 503, 504):
                 raise  # erreur définitive (clé invalide, requête malformée...) : inutile de retenter
     raise last_exc
 
