@@ -78,14 +78,24 @@ Réponds UNIQUEMENT avec un objet JSON respectant exactement ce schéma :
     "garage": string|null,
     "amount": number|null
   }},
+  "costs": [{{"label": string, "amount": number}}],
+  "estimated_resale_value": number|null,
   "confidence": number
 }}
 
 Règles strictes :
-- N'invente et ne déduis JAMAIS une valeur absente : mets null.
+- N'invente et ne déduis JAMAIS une valeur absente : mets null (ou [] pour "costs" s'il n'y a aucun coût annexe).
+- "event.amount" est le montant principal du mail : prix d'achat pour un achat,
+  montant facturé pour un entretien/réparation/assurance/contrôle technique...
+- "costs" liste les coûts annexes en plus du montant principal, avec leur libellé
+  tel qu'écrit dans le mail (ex. "Mécanique", "Dossier administratif", "Contrôle
+  technique" pour une note d'achat qui détaille les frais de remise en état).
+  Ne remets JAMAIS dans "costs" le montant déjà utilisé dans "event.amount".
+- "estimated_resale_value" est un prix de revente espéré/estimé s'il est mentionné
+  (ex. "Revente").
 - Si le mail n'a manifestement aucun rapport avec un véhicule (spam, newsletter,
-  correspondance personnelle...), laisse tous les champs vehicle/event à null
-  et mets "confidence" proche de 0.
+  correspondance personnelle...), laisse tous les champs vehicle/event à null,
+  "costs" à [], "estimated_resale_value" à null, et mets "confidence" proche de 0.
 - "confidence" reflète ta certitude globale entre 0 et 1.
 - Aucun champ supplémentaire, aucun commentaire, aucun texte hors JSON.
 """
@@ -139,7 +149,8 @@ def extract_body_and_attachments(msg: email.message.Message):
 def has_relevant_signal(data: dict) -> bool:
     vehicle, event = data.get("vehicle") or {}, data.get("event") or {}
     return any(vehicle.get(k) for k in ("registration", "vin", "brand", "model", "year")) or \
-        any(event.get(k) for k in ("date", "mileage", "description", "garage", "amount"))
+        any(event.get(k) for k in ("date", "mileage", "description", "garage", "amount")) or \
+        bool(data.get("costs")) or data.get("estimated_resale_value") is not None
 
 
 FINAL_STATUSES = {"processed", "needs_review", "skipped"}
@@ -204,14 +215,15 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
     raise last_exc
 
 
-def find_or_create_vehicle(vehicle: dict, purchase_event: dict | None = None):
+def find_or_create_vehicle(data: dict, event_type: str):
     """Retourne (vehicle_id, needs_review_reason, was_created).
 
-    Si `purchase_event` est fourni (mail de type "purchase") ET que le
-    véhicule est créé ici pour la première fois, son prix/date d'achat sont
-    enregistrés directement à la création — sans risque puisqu'il n'existait
-    pas encore. Un véhicule déjà existant n'est jamais modifié de cette façon
-    (voir create_event / needs_review pour ce cas)."""
+    Un véhicule tout juste créé ici (jamais vu avant) n'a aucune donnée
+    existante à protéger : son kilométrage est enregistré dans tous les cas,
+    et pour un mail de type "purchase", son prix/date d'achat et sa valeur de
+    revente estimée le sont aussi. Un véhicule déjà existant n'est en revanche
+    jamais modifié de cette façon (voir create_event / needs_review)."""
+    vehicle, event = data.get("vehicle") or {}, data.get("event") or {}
     registration, vin = vehicle.get("registration"), vehicle.get("vin")
     if not registration and not vin:
         return None, "ni immatriculation ni VIN identifiés", False
@@ -221,9 +233,9 @@ def find_or_create_vehicle(vehicle: dict, purchase_event: dict | None = None):
         headers=api_headers(), json={"registration": registration, "vin": vin}, timeout=20,
     )
     lookup.raise_for_status()
-    data = lookup.json()
-    if data["exists"]:
-        return data["vehicle_id"], None, False
+    lookup_data = lookup.json()
+    if lookup_data["exists"]:
+        return lookup_data["vehicle_id"], None, False
 
     if not vehicle.get("brand") or not vehicle.get("model"):
         return None, "véhicule inconnu et marque/modèle manquants pour le créer", False
@@ -232,15 +244,31 @@ def find_or_create_vehicle(vehicle: dict, purchase_event: dict | None = None):
         "brand": vehicle["brand"], "model": vehicle["model"], "year": vehicle.get("year"),
         "registration": registration, "vin": vin,
     }
-    if purchase_event:
-        if purchase_event.get("amount") is not None:
-            payload["price_buy"] = purchase_event["amount"]
-        if purchase_event.get("date"):
-            payload["date_buy"] = purchase_event["date"]
+    if event.get("mileage") is not None:
+        payload["km"] = event["mileage"]
+    if event_type == "purchase":
+        if event.get("amount") is not None:
+            payload["price_buy"] = event["amount"]
+        if event.get("date"):
+            payload["date_buy"] = event["date"]
+        if data.get("estimated_resale_value") is not None:
+            payload["estimated_value"] = data["estimated_resale_value"]
 
     created = requests.post(f"{API_BASE_URL}/automation/vehicles", headers=api_headers(), json=payload, timeout=20)
     created.raise_for_status()
     return created.json()["id"], None, True
+
+
+def create_charges(vehicle_id: int, costs: list, date: str | None):
+    for cost in costs or []:
+        label, amount = cost.get("label"), cost.get("amount")
+        if not label or amount is None:
+            continue
+        requests.post(
+            f"{API_BASE_URL}/charges", headers=api_headers(),
+            json={"vehicle_id": vehicle_id, "category": label, "amount": amount, "date": date},
+            timeout=20,
+        ).raise_for_status()
 
 
 def create_event(vehicle_id: int, event_type: str, event: dict) -> dict:
@@ -305,8 +333,7 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
 
         event_type = data.get("type") or "other"
         event = data.get("event") or {}
-        purchase_event = event if event_type == "purchase" else None
-        vehicle_id, reason, was_created = find_or_create_vehicle(data.get("vehicle") or {}, purchase_event)
+        vehicle_id, reason, was_created = find_or_create_vehicle(data, event_type)
 
         if reason:
             update_log_entry(message_id, status="needs_review", error_message=reason,
@@ -315,6 +342,7 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
             return True
 
         update_log_entry(message_id, vehicle_id=vehicle_id)
+        create_charges(vehicle_id, data.get("costs"), event.get("date"))
 
         if event_type == "purchase" and was_created:
             # Prix/date d'achat déjà enregistrés à la création du véhicule ci-dessus.
