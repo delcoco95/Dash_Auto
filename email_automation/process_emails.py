@@ -39,6 +39,7 @@ API_BASE_URL = os.environ["DASH_API_BASE_URL"].rstrip("/")
 API_KEY = os.environ["DASH_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL") or "gemini-flash-lite-latest"
 
 ALLOWED_ATTACHMENT_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 GEMINI_INLINE_MIME = {
@@ -230,6 +231,21 @@ def update_log_entry(message_id: str, **fields):
     ).raise_for_status()
 
 
+def _call_gemini(model: str, parts: list) -> dict:
+    r = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        params={"key": GEMINI_API_KEY},
+        json={
+            "contents": [{"parts": parts}],
+            "generationConfig": {"response_mime_type": "application/json"},
+        },
+        timeout=60,
+    )
+    r.raise_for_status()
+    text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(text)
+
+
 def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
     parts = [{"text": EXTRACTION_PROMPT.format(subject=subject, body=body[:6000])}]
     for att in attachments:
@@ -237,24 +253,18 @@ def extract_structured_data(subject: str, body: str, attachments: list) -> dict:
         if mime and len(att["content"]) <= MAX_INLINE_ATTACHMENT_BYTES:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(att["content"]).decode("ascii")}})
 
+    # 3 essais sur le modèle principal (surcharges transitoires courantes sur le
+    # niveau gratuit), puis un dernier essai sur un modèle de secours différent
+    # avant d'abandonner pour ce passage (le mail restera non lu et sera retenté
+    # automatiquement au prochain passage du cron).
+    attempts = [(GEMINI_MODEL, 0), (GEMINI_MODEL, 3), (GEMINI_MODEL, 8), (GEMINI_FALLBACK_MODEL, 5)]
     last_exc = None
-    for attempt, delay in enumerate((0, 3, 8)):
+    for model, delay in attempts:
         if delay:
-            print(f"    (Gemini indisponible, nouvel essai dans {delay}s...)")
+            print(f"    (Gemini indisponible, nouvel essai dans {delay}s sur {model}...)")
             time.sleep(delay)
         try:
-            r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-                params={"key": GEMINI_API_KEY},
-                json={
-                    "contents": [{"parts": parts}],
-                    "generationConfig": {"response_mime_type": "application/json"},
-                },
-                timeout=60,
-            )
-            r.raise_for_status()
-            text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(text)
+            return _call_gemini(model, parts)
         except requests.HTTPError as exc:
             last_exc = exc
             if exc.response is None or exc.response.status_code < 500:
