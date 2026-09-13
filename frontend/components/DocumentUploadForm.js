@@ -7,7 +7,7 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export const DOC_CATS = ['Photo', 'Facture', 'Contrôle technique', 'Carte grise', 'Assurance', 'Devis', 'Contrat', 'Rapport', 'Autre']
+export const DOC_CATS = ['Photo', 'Facture', 'Contrôle technique', 'Carte grise', 'Assurance', 'Devis', 'Contrat', 'Rapport', 'DA - Achat', 'DV - Vente', 'Autre']
 export const DOC_STATUSES = ['valide', 'en attente', 'expiré', 'archivé']
 
 // Présélectionne une catégorie plausible à partir du nom de fichier déposé.

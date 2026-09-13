@@ -78,7 +78,8 @@ Réponds UNIQUEMENT avec un objet JSON respectant exactement ce schéma :
     "garage": string|null,
     "amount": number|null
   }},
-  "costs": [{{"label": string, "amount": number}}],
+  "costs": [{{"label": string, "amount": number, "kind": "intervention|charge"}}],
+  "sale": {{"date": "YYYY-MM-DD"|null, "amount": number|null}},
   "estimated_resale_value": number|null,
   "confidence": number
 }}
@@ -91,10 +92,17 @@ Règles strictes :
   tel qu'écrit dans le mail (ex. "Mécanique", "Dossier administratif", "Contrôle
   technique" pour une note d'achat qui détaille les frais de remise en état).
   Ne remets JAMAIS dans "costs" le montant déjà utilisé dans "event.amount".
-- "estimated_resale_value" est un prix de revente espéré/estimé s'il est mentionné
-  (ex. "Revente").
+- Pour chaque élément de "costs", "kind" vaut :
+  - "intervention" pour tout ce qui relève d'un travail mécanique/technique sur le
+    véhicule : réparation, mécanique, contrôle technique, vidange, entretien,
+    nettoyage, carrosserie, pneus...
+  - "charge" pour tout ce qui est administratif/financier : transport, carburant/
+    essence, dossier administratif (DA), carte grise, assurance, taxe, commission...
+- "sale" décrit une vente déjà réalisée (date et montant), à ne pas confondre avec
+  "estimated_resale_value" qui est une estimation/espérance de revente, pas une
+  vente effective.
 - Si le mail n'a manifestement aucun rapport avec un véhicule (spam, newsletter,
-  correspondance personnelle...), laisse tous les champs vehicle/event à null,
+  correspondance personnelle...), laisse tous les champs vehicle/event/sale à null,
   "costs" à [], "estimated_resale_value" à null, et mets "confidence" proche de 0.
 - "confidence" reflète ta certitude globale entre 0 et 1.
 - Aucun champ supplémentaire, aucun commentaire, aucun texte hors JSON.
@@ -147,10 +155,49 @@ def extract_body_and_attachments(msg: email.message.Message):
 
 
 def has_relevant_signal(data: dict) -> bool:
-    vehicle, event = data.get("vehicle") or {}, data.get("event") or {}
+    vehicle, event, sale = data.get("vehicle") or {}, data.get("event") or {}, data.get("sale") or {}
     return any(vehicle.get(k) for k in ("registration", "vin", "brand", "model", "year")) or \
         any(event.get(k) for k in ("date", "mileage", "description", "garage", "amount")) or \
-        bool(data.get("costs")) or data.get("estimated_resale_value") is not None
+        bool(data.get("costs")) or data.get("estimated_resale_value") is not None or \
+        any(sale.get(k) for k in ("date", "amount"))
+
+
+# Catégories réellement proposées dans le menu déroulant "Documents" du dashboard
+# (frontend/components/DocumentUploadForm.js) — on y reste pour que les documents
+# déposés automatiquement s'affichent avec une catégorie cohérente.
+DOCUMENT_CATEGORY_MAP = {
+    "purchase": "DA - Achat",
+    "sale": "DV - Vente",
+    "maintenance": "Facture",
+    "repair": "Facture",
+    "inspection": "Contrôle technique",
+    "insurance": "Assurance",
+    "document": "Autre",
+    "other": "Autre",
+}
+
+
+def build_financial_extras(data: dict, event: dict, event_type: str) -> dict:
+    """Champs véhicule qu'un mail permet de renseigner (prix/date d'achat et de
+    vente, kilométrage, valeur de revente estimée) — utilisés à la création d'un
+    véhicule, ou pour compléter un véhicule existant SANS écraser une valeur déjà
+    présente (voir enrich_existing_vehicle)."""
+    extras = {}
+    if event.get("mileage") is not None:
+        extras["km"] = event["mileage"]
+    if event_type == "purchase":
+        if event.get("amount") is not None:
+            extras["price_buy"] = event["amount"]
+        if event.get("date"):
+            extras["date_buy"] = event["date"]
+    sale = data.get("sale") or {}
+    if sale.get("amount") is not None:
+        extras["price_sell"] = sale["amount"]
+    if sale.get("date"):
+        extras["date_sell"] = sale["date"]
+    if data.get("estimated_resale_value") is not None:
+        extras["estimated_value"] = data["estimated_resale_value"]
+    return extras
 
 
 FINAL_STATUSES = {"processed", "needs_review", "skipped"}
@@ -244,31 +291,61 @@ def find_or_create_vehicle(data: dict, event_type: str):
         "brand": vehicle["brand"], "model": vehicle["model"], "year": vehicle.get("year"),
         "registration": registration, "vin": vin,
     }
-    if event.get("mileage") is not None:
-        payload["km"] = event["mileage"]
-    if event_type == "purchase":
-        if event.get("amount") is not None:
-            payload["price_buy"] = event["amount"]
-        if event.get("date"):
-            payload["date_buy"] = event["date"]
-        if data.get("estimated_resale_value") is not None:
-            payload["estimated_value"] = data["estimated_resale_value"]
+    payload.update(build_financial_extras(data, event, event_type))
 
     created = requests.post(f"{API_BASE_URL}/automation/vehicles", headers=api_headers(), json=payload, timeout=20)
     created.raise_for_status()
     return created.json()["id"], None, True
 
 
-def create_charges(vehicle_id: int, costs: list, date: str | None):
+def _is_empty(value) -> bool:
+    return value is None or value == ""
+
+
+def enrich_existing_vehicle(vehicle_id: int, candidates: dict):
+    """Complète un véhicule déjà existant, mais UNIQUEMENT les champs qu'il n'a
+    pas déjà (prix/date d'achat ou de vente, km, valeur estimée) — jamais
+    d'écrasement d'une donnée déjà présente, potentiellement saisie à la main."""
+    candidates = {k: v for k, v in candidates.items() if not _is_empty(v)}
+    if not candidates:
+        return
+
+    current = requests.get(f"{API_BASE_URL}/vehicles/{vehicle_id}", headers=api_headers(), timeout=20)
+    current.raise_for_status()
+    existing = current.json()
+    to_write = {k: v for k, v in candidates.items() if _is_empty(existing.get(k))}
+    if to_write:
+        requests.put(
+            f"{API_BASE_URL}/vehicles/{vehicle_id}", headers=api_headers(), json=to_write, timeout=20,
+        ).raise_for_status()
+        print(f"    (véhicule {vehicle_id} complété : {', '.join(to_write)})")
+
+
+def route_costs(vehicle_id: int, registration: str | None, costs: list, date: str | None):
+    """Chaque coût annexe devient soit une intervention (Travaux — travail
+    mécanique/technique), soit une charge (administratif/financier), selon le
+    "kind" renvoyé par l'IA. Le libellé affiché reprend la convention déjà
+    utilisée manuellement dans le dashboard : "<catégorie> - <immatriculation>"."""
     for cost in costs or []:
-        label, amount = cost.get("label"), cost.get("amount")
+        label, amount, kind = cost.get("label"), cost.get("amount"), cost.get("kind")
         if not label or amount is None:
             continue
-        requests.post(
-            f"{API_BASE_URL}/charges", headers=api_headers(),
-            json={"vehicle_id": vehicle_id, "category": label, "amount": amount, "date": date},
-            timeout=20,
-        ).raise_for_status()
+        name = f"{label} - {registration}" if registration else label
+
+        if kind == "intervention":
+            requests.post(
+                f"{API_BASE_URL}/interventions", headers=api_headers(),
+                json={
+                    "vehicle_id": vehicle_id, "title": name, "category": label,
+                    "status": "terminée", "cost_actual": amount, "date_done": date,
+                }, timeout=20,
+            ).raise_for_status()
+        else:
+            requests.post(
+                f"{API_BASE_URL}/charges", headers=api_headers(),
+                json={"vehicle_id": vehicle_id, "category": label, "amount": amount, "date": date, "description": name},
+                timeout=20,
+            ).raise_for_status()
 
 
 def create_event(vehicle_id: int, event_type: str, event: dict) -> dict:
@@ -281,16 +358,18 @@ def create_event(vehicle_id: int, event_type: str, event: dict) -> dict:
     return r.json()
 
 
-def upload_attachments(vehicle_id: int, category: str, attachments: list):
+def upload_attachments(vehicle_id: int, event_type: str, registration: str | None, attachments: list):
+    category = DOCUMENT_CATEGORY_MAP.get(event_type, "Autre")
     for att in attachments:
         ext = os.path.splitext(att["name"])[1].lower()
         if ext not in ALLOWED_ATTACHMENT_EXT:
             continue
+        name = f"{category} - {registration}{ext}" if registration else att["name"]
         requests.post(
             f"{API_BASE_URL}/automation/vehicles/{vehicle_id}/documents",
             headers=api_headers(),
             json={
-                "name": att["name"], "type": att["content_type"], "category": category,
+                "name": name, "type": att["content_type"], "category": category,
                 "content_base64": base64.b64encode(att["content"]).decode("ascii"),
             }, timeout=60,
         ).raise_for_status()
@@ -333,6 +412,8 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
 
         event_type = data.get("type") or "other"
         event = data.get("event") or {}
+        vehicle = data.get("vehicle") or {}
+        registration = vehicle.get("registration")
         vehicle_id, reason, was_created = find_or_create_vehicle(data, event_type)
 
         if reason:
@@ -342,18 +423,23 @@ def process_message(num: bytes, imap: imaplib.IMAP4_SSL) -> bool:
             return True
 
         update_log_entry(message_id, vehicle_id=vehicle_id)
-        create_charges(vehicle_id, data.get("costs"), event.get("date"))
+        if not was_created:
+            # Le véhicule existait déjà : on ne fait que compléter ses champs vides
+            # (prix/date d'achat ou de vente, km, valeur estimée), jamais les écraser.
+            enrich_existing_vehicle(vehicle_id, build_financial_extras(data, event, event_type))
+        route_costs(vehicle_id, registration, data.get("costs"), event.get("date"))
+        upload_attachments(vehicle_id, event_type, registration, attachments)
 
-        if event_type == "purchase" and was_created:
-            # Prix/date d'achat déjà enregistrés à la création du véhicule ci-dessus.
+        has_primary_event = event.get("amount") is not None or bool(event.get("description"))
+        if event_type == "purchase" or (not has_primary_event and (data.get("costs") or data.get("sale"))):
+            # Achat, ou mail qui ne contenait que des coûts annexes/une vente déjà
+            # traités ci-dessus : rien de plus à créer comme événement séparé.
             update_log_entry(message_id, status="processed", event_type=event_type,
                               extracted_json=json.dumps(data, ensure_ascii=False))
-            upload_attachments(vehicle_id, event_type, attachments)
-            print(f"    -> processed (véhicule {vehicle_id} créé avec prix d'achat)")
+            print(f"    -> processed (véhicule {vehicle_id})")
             return True
 
         result = create_event(vehicle_id, event_type, event)
-        upload_attachments(vehicle_id, event_type, attachments)
 
         if result["handled"] or event_type == "document":
             update_log_entry(message_id, status="processed", event_type=event_type,

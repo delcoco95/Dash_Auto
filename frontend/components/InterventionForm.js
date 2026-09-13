@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 
-export const INTERVENTION_CATS = ['', 'Vidange', 'Révision', 'Freins', 'Pneus', 'Carrosserie', 'Peinture', 'Pare-brise', 'Contrôle technique', 'Nettoyage', 'Diagnostic', 'Électricité', 'Entretien général', 'Autre']
+export const INTERVENTION_CATS = ['', 'Vidange', 'Révision', 'Réparation', 'Freins', 'Pneus', 'Carrosserie', 'Peinture', 'Pare-brise', 'Contrôle technique', 'Nettoyage', 'Diagnostic', 'Électricité', 'Entretien général', 'Autre']
 export const INT_STATUSES = ['à prévoir', 'en cours', 'terminée', 'annulée']
 export const INT_PRIORITIES = ['haute', 'normale', 'basse']
 
