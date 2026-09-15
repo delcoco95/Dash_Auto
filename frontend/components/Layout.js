@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   LogOut,
   Menu,
-  X
+  X,
+  FileSignature
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -27,6 +28,7 @@ const navLinks = [
   { href: '/app/vehicles',  icon: Car,             label: 'Flotte' },
   { href: '/app/planning',  icon: Calendar,        label: 'Planning' },
   { href: '/app/documents', icon: FileText,        label: 'Administratif' },
+  { href: '/app/pdf-generator', icon: FileSignature, label: 'Générateur PDF' },
   { href: '/app/ai',        icon: Bot,             label: 'Assistant IA' },
 ]
 

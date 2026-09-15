@@ -1287,6 +1287,68 @@ tr.row-warning td { background: var(--warning-light); }
 .chat-input-area textarea { flex: 1; }
 
 /* ══════════════════════════════════════════════════════════════
+   GÉNÉRATEUR PDF — bascule facture/procuration & lignes éditables
+══════════════════════════════════════════════════════════════ */
+.segmented {
+  display: inline-flex;
+  background: var(--bg-main);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  gap: 4px;
+}
+.segmented-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 22px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.segmented-btn:hover { color: var(--text-primary); }
+.segmented-btn.active {
+  background: var(--bg-card);
+  color: var(--accent-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.pdf-items { display: flex; flex-direction: column; gap: 8px; }
+.pdf-items-labels,
+.pdf-item-row {
+  display: grid;
+  grid-template-columns: 2fr 1.3fr 64px 100px 100px 32px;
+  gap: 8px;
+  align-items: center;
+}
+.pdf-items-labels {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+.pdf-item-row .form-input { padding: 8px 10px; font-size: 13px; }
+.pdf-item-total { font-weight: 700; text-align: right; font-size: 13px; color: var(--text-primary); white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .pdf-items-labels { display: none; }
+  .pdf-item-row {
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+  }
+  .pdf-item-row > input[placeholder],
+  .pdf-item-row > select { grid-column: span 2; }
+  .pdf-item-total { grid-column: span 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    RESPONSIVE DESIGN (Tablets & Mobile)
 ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
