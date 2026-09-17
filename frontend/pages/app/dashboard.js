@@ -161,11 +161,11 @@ export default function Dashboard() {
     if (activeModal === 'ventes' && vehicles) {
       items = vehicles.filter(v => v.price_sell && v.date_sell)
         .sort((a, b) => new Date(b.date_sell) - new Date(a.date_sell))
-        .map(v => ({ id: v.id, date: v.date_sell, title: vehicleLabel(v), amount: v.price_sell, type: 'positive' }))
+        .map(v => ({ id: v.id, date: v.date_sell, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_sell, type: 'positive' }))
     } else if (activeModal === 'achats' && vehicles) {
       items = vehicles.filter(v => v.price_buy && v.date_buy)
         .sort((a, b) => new Date(b.date_buy) - new Date(a.date_buy))
-        .map(v => ({ id: v.id, date: v.date_buy, title: vehicleLabel(v), amount: v.price_buy, type: 'negative' }))
+        .map(v => ({ id: v.id, date: v.date_buy, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_buy, type: 'negative' }))
     } else if (activeModal === 'charges' && charges) {
       items = charges
         .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -174,7 +174,7 @@ export default function Dashboard() {
           return {
             id: c.id,
             date: c.date,
-            title: v ? vehicleLabel(v) : (c.description || c.category),
+            title: v ? `${v.brand} ${v.model}` : (c.description || c.category),
             subtitle: v ? [c.category, c.description].filter(Boolean).join(' · ') : null,
             amount: c.amount,
             type: 'negative',
@@ -189,7 +189,7 @@ export default function Dashboard() {
           return {
             id: i.id,
             date: i.date_planned,
-            title: v ? vehicleLabel(v) : i.title,
+            title: v ? `${v.brand} ${v.model}` : i.title,
             subtitle: v ? `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}` : (i.cost_actual == null ? 'Estimé' : null),
             amount: i.cost_actual ?? i.cost_estimated,
             type: 'negative',
@@ -204,7 +204,14 @@ export default function Dashboard() {
         {items.map((item, idx) => (
           <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eaeaea' }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>
+                {item.vehicleName ? (
+                  <>
+                    <span>{item.vehicleName}</span>
+                    {item.vehicleReg && <span style={{ color: '#1976d2', marginLeft: 8 }}>{item.vehicleReg}</span>}
+                  </>
+                ) : item.title}
+              </div>
               <div style={{ fontSize: 12, color: '#888' }}>
                 {[item.subtitle, fmtDate(item.date)].filter(Boolean).join(' · ')}
               </div>

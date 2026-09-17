@@ -72,7 +72,7 @@ function ConfirmModal({ title, text, onConfirm, onCancel }) {
   )
 }
 
-const CHARGE_CATS = ['Achat', 'Réparation', 'Entretien', 'Assurance', 'Transport', 'Carburant', 'Taxe', 'Commission', 'Autre']
+const CHARGE_CATS = ['Achat', 'DA', 'Assurance', 'Transport', 'Carburant', 'Taxe', 'Commission', 'Autre']
 
 const TABS = [
   { id: 'info',          label: 'Informations',   icon: Info },
