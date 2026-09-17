@@ -25,3 +25,11 @@ export function fmtDays(n) {
   const days = Math.round(n)
   return `${days} jour${days > 1 ? 's' : ''}`
 }
+
+// Libellé véhicule unique, réutilisé partout où un véhicule est référencé
+// (listes de transactions, charges, travaux, sélecteurs) : "Peugeot 207 - GZ-976-RT".
+export function vehicleLabel(v) {
+  if (!v) return 'Véhicule inconnu'
+  const name = `${v.brand ?? ''} ${v.model ?? ''}`.trim() || 'Véhicule'
+  return v.registration ? `${name} - ${v.registration}` : name
+}

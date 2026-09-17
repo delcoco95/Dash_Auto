@@ -5,7 +5,7 @@ import Layout from '../../../components/Layout'
 import FilePreviewModal from '../../../components/FilePreviewModal'
 import DocumentUploadForm, { DOC_CATS, DOC_STATUSES } from '../../../components/DocumentUploadForm'
 import { Plus, Trash2, X, FolderOpen } from 'lucide-react'
-import { fmtDate, fmt } from '../../../lib/format'
+import { fmtDate, fmt, vehicleLabel } from '../../../lib/format'
 import { isExpiring, isExpired, getDocIcon, docStatusBadgeClass } from '../../../lib/documents'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -67,7 +67,7 @@ export default function DocumentsGlobal() {
             <option value="">Tous les véhicules</option>
             <option value="unclassified">Non classés (aucun véhicule)</option>
             {vehicles?.map(v => (
-              <option key={v.id} value={v.id}>{v.registration || v.vin || `${v.brand} ${v.model}`}</option>
+              <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
             ))}
           </select>
 
@@ -138,7 +138,7 @@ export default function DocumentsGlobal() {
                         <td data-label="Véhicule">
                           {v ? (
                             <Link href={`/app/vehicles/${v.id}`} className="doc-vehicle-link">
-                              {v.registration || `${v.brand} ${v.model}`}
+                              {vehicleLabel(v)}
                             </Link>
                           ) : (
                             <span className="badge badge-doc-attente">Non classé</span>

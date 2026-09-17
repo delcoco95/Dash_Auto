@@ -5,6 +5,7 @@
  * Une seule liste de catégories et un seul champ priorité, partagés partout.
  */
 import { useState } from 'react'
+import { vehicleLabel } from '../lib/format'
 
 export const INTERVENTION_CATS = ['', 'Vidange', 'Révision', 'Réparation', 'Freins', 'Pneus', 'Carrosserie', 'Peinture', 'Pare-brise', 'Contrôle technique', 'Nettoyage', 'Diagnostic', 'Électricité', 'Entretien général', 'Autre']
 export const INT_STATUSES = ['à prévoir', 'en cours', 'terminée', 'annulée']
@@ -56,7 +57,7 @@ export default function InterventionForm({ vehicles, showVehicleSelect = false, 
             <select className="form-input" required value={form.vehicle_id} onChange={e => set('vehicle_id', e.target.value)}>
               <option value="">-- Choisir un véhicule --</option>
               {vehicles?.map(v => (
-                <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.registration})</option>
+                <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
               ))}
             </select>
           </div>

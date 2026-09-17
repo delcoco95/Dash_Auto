@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { vehicleLabel } from '../lib/format'
 
 export const DOC_CATS = ['Photo', 'Facture', 'Contrôle technique', 'Carte grise', 'Assurance', 'Devis', 'Contrat', 'Rapport', 'DA - Achat', 'DV - Vente', 'Autre']
 export const DOC_STATUSES = ['valide', 'en attente', 'expiré', 'archivé']
@@ -89,7 +90,7 @@ export default function DocumentUploadForm({ apiUrl, vehicleId = null, vehicles,
             <select className="form-input" value={docForm.vehicle_id} onChange={e => set('vehicle_id', e.target.value)}>
               <option value="">Aucun (document général)</option>
               {vehicles?.map(v => (
-                <option key={v.id} value={v.id}>{v.registration || `${v.brand} ${v.model}`}</option>
+                <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
               ))}
             </select>
           </div>

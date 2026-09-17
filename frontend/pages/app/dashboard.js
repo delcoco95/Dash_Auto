@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx'
 import useSWR, { useSWRConfig } from 'swr'
 import Layout from '../../components/Layout'
 import InterventionForm from '../../components/InterventionForm'
-import { fmt, fmtDate, fmtDays } from '../../lib/format'
+import { fmt, fmtDate, fmtDays, vehicleLabel } from '../../lib/format'
 import { ArrowUpRight, Plus, Calendar as CalendarIcon, Wrench, X, TrendingUp } from 'lucide-react'
 import {
   Chart as ChartJS,
@@ -161,26 +161,40 @@ export default function Dashboard() {
     if (activeModal === 'ventes' && vehicles) {
       items = vehicles.filter(v => v.price_sell && v.date_sell)
         .sort((a, b) => new Date(b.date_sell) - new Date(a.date_sell))
-        .map(v => ({ id: v.id, date: v.date_sell, title: `${v.brand} ${v.model}`, amount: v.price_sell, type: 'positive' }))
+        .map(v => ({ id: v.id, date: v.date_sell, title: vehicleLabel(v), amount: v.price_sell, type: 'positive' }))
     } else if (activeModal === 'achats' && vehicles) {
       items = vehicles.filter(v => v.price_buy && v.date_buy)
         .sort((a, b) => new Date(b.date_buy) - new Date(a.date_buy))
-        .map(v => ({ id: v.id, date: v.date_buy, title: `${v.brand} ${v.model}`, amount: v.price_buy, type: 'negative' }))
+        .map(v => ({ id: v.id, date: v.date_buy, title: vehicleLabel(v), amount: v.price_buy, type: 'negative' }))
     } else if (activeModal === 'charges' && charges) {
       items = charges
         .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .map(c => ({ id: c.id, date: c.date, title: c.description || c.category, amount: c.amount, type: 'negative' }))
+        .map(c => {
+          const v = vehicles?.find(x => x.id === c.vehicle_id)
+          return {
+            id: c.id,
+            date: c.date,
+            title: v ? vehicleLabel(v) : (c.description || c.category),
+            subtitle: v ? [c.category, c.description].filter(Boolean).join(' · ') : null,
+            amount: c.amount,
+            type: 'negative',
+          }
+        })
     } else if (activeModal === 'travaux' && interventions) {
       items = interventions
         .filter(i => i.status !== 'annulée' && (i.cost_actual != null || i.cost_estimated != null))
         .sort((a, b) => new Date(b.date_planned) - new Date(a.date_planned))
-        .map(i => ({
-          id: i.id,
-          date: i.date_planned,
-          title: `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}`,
-          amount: i.cost_actual ?? i.cost_estimated,
-          type: 'negative',
-        }))
+        .map(i => {
+          const v = vehicles?.find(x => x.id === i.vehicle_id)
+          return {
+            id: i.id,
+            date: i.date_planned,
+            title: v ? vehicleLabel(v) : i.title,
+            subtitle: v ? `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}` : (i.cost_actual == null ? 'Estimé' : null),
+            amount: i.cost_actual ?? i.cost_estimated,
+            type: 'negative',
+          }
+        })
     }
 
     if (items.length === 0) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Aucune transaction trouvée.</div>
@@ -191,7 +205,9 @@ export default function Dashboard() {
           <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eaeaea' }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
-              <div style={{ fontSize: 12, color: '#888' }}>{fmtDate(item.date)}</div>
+              <div style={{ fontSize: 12, color: '#888' }}>
+                {[item.subtitle, fmtDate(item.date)].filter(Boolean).join(' · ')}
+              </div>
             </div>
             <div style={{ fontWeight: 600, color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
               {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
@@ -352,7 +368,7 @@ export default function Dashboard() {
                 <div className="task-info">
                   <div className="task-icon"><Wrench size={20} color="var(--accent-primary)" /></div>
                   <div>
-                    <div className="task-title">{i.title} - {vehicles?.find(v => v.id === i.vehicle_id)?.brand || 'Véhicule Inconnu'}</div>
+                    <div className="task-title">{i.title} - {vehicleLabel(vehicles?.find(v => v.id === i.vehicle_id))}</div>
                     <div className="task-date">Prévu le : {fmtDate(i.date_planned)}</div>
                   </div>
                 </div>

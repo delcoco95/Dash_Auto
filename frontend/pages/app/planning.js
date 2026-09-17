@@ -9,7 +9,7 @@ import frLocale from 'date-fns/locale/fr'
 import { Plus, Trash, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../../components/Layout'
-import { fmtDateTime } from '../../lib/format'
+import { fmtDateTime, vehicleLabel } from '../../lib/format'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const fetcher = (url) => fetch(url).then(r => r.json())
@@ -172,7 +172,7 @@ export default function Planning() {
                       <label className="form-label">Véhicule (optionnel)</label>
                       <select className="form-input" value={formData.vehicle_id} onChange={e => setFormData({ ...formData, vehicle_id: e.target.value })}>
                         <option value="">Aucun</option>
-                        {vehicles?.map(v => <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.registration})</option>)}
+                        {vehicles?.map(v => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
                       </select>
                     </div>
                     <div className="form-group">

@@ -159,6 +159,7 @@ export default function VehicleDetail() {
   }
 
   const deleteImage = async (imgId) => {
+    if (!confirm('Supprimer cette image ?')) return
     const res = await fetch(`${API_URL}/images/${imgId}`, { method: 'DELETE' })
     if (res.ok) { mutImg(); toast('Image supprimée') }
     else toast('Erreur suppression', 'error')
@@ -171,6 +172,7 @@ export default function VehicleDetail() {
 
   // ── Documents ──
   const deleteDoc = async (did) => {
+    if (!confirm('Supprimer ce document définitivement ?')) return
     const res = await fetch(`${API_URL}/documents/${did}`, { method: 'DELETE' })
     if (res.ok) { mutD(); toast('Document supprimé') }
     else toast('Erreur suppression', 'error')
@@ -192,6 +194,7 @@ export default function VehicleDetail() {
   }
 
   const deleteCharge = async (cid) => {
+    if (!confirm('Supprimer cette charge ?')) return
     const res = await fetch(`${API_URL}/charges/${cid}`, { method: 'DELETE' })
     if (res.ok) { mutC(); toast('Charge supprimée') }
   }
@@ -230,6 +233,7 @@ export default function VehicleDetail() {
   }
 
   const deleteIntervention = async (iid) => {
+    if (!confirm('Supprimer cette intervention ?')) return
     const res = await fetch(`${API_URL}/interventions/${iid}`, { method: 'DELETE' })
     if (res.ok) { mutI(); toast('Intervention supprimée') }
   }

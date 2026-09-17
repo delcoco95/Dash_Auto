@@ -12,7 +12,6 @@ import {
   FileText,
   Calendar,
   Search,
-  Bot,
   CheckCircle2,
   LogOut,
   Menu,
@@ -29,7 +28,6 @@ const navLinks = [
   { href: '/app/planning',  icon: Calendar,        label: 'Planning' },
   { href: '/app/documents', icon: FileText,        label: 'Administratif' },
   { href: '/app/pdf-generator', icon: FileSignature, label: 'Générateur PDF' },
-  { href: '/app/ai',        icon: Bot,             label: 'Assistant IA' },
 ]
 
 export default function Layout({ children, title = 'Dash Auto' }) {

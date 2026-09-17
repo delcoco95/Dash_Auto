@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
+import toast from 'react-hot-toast'
 import Layout from '../../components/Layout'
 import { buildInvoicePDF, buildProcurationPDF } from '../../lib/pdfGenerator'
+import { supabase } from '../../lib/supabase'
 import { Receipt, FileSignature, Plus, Trash2, Download, Wand2 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -93,13 +95,52 @@ export default function PdfGenerator() {
   const taxAmount = subtotal * (Number(taxRate) || 0) / 100
   const total = subtotal + taxAmount
 
-  const generateInvoice = () => {
+  // Enregistre une copie du PDF généré dans Administratif (Documents), en plus du
+  // téléchargement local — un garage doit pouvoir retrouver chaque facture/procuration
+  // émise sans avoir à la re-télécharger depuis son poste.
+  const saveCopyToDocuments = async ({ doc, filename, category, vehicleId, amount, date }) => {
+    try {
+      const blob = doc.output('blob')
+      const filePath = `generated/${Date.now()}-${filename}`
+
+      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, blob, {
+        contentType: 'application/pdf',
+      })
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath)
+
+      const res = await fetch(`${API_URL}/documents/url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_id: vehicleId ? parseInt(vehicleId) : null,
+          category,
+          name: filename,
+          date: date || null,
+          amount: amount ?? null,
+          status: 'valide',
+          url: publicUrl,
+          type: 'application/pdf',
+        }),
+      })
+      if (!res.ok) throw new Error('Réponse API invalide')
+      toast.success('Copie enregistrée dans Administratif')
+    } catch (err) {
+      console.error(err)
+      toast.error("PDF téléchargé, mais l'enregistrement dans Administratif a échoué")
+    }
+  }
+
+  const generateInvoice = async () => {
     if (!client.name.trim()) { alert('Merci de renseigner le nom du client.'); return }
     if (items.every(it => !it.description.trim())) { alert('Ajoutez au moins une ligne à la facture.'); return }
     setGenerating(true)
     try {
       const doc = buildInvoicePDF({ company, invoiceNumber, invoiceDate, dueDate, client, vehicle: invVehicle, items, taxRate, notes })
-      doc.save(`${invoiceNumber}.pdf`)
+      const filename = `${invoiceNumber}.pdf`
+      doc.save(filename)
+      await saveCopyToDocuments({ doc, filename, category: 'Facture', vehicleId: invVehicleId, amount: total, date: invoiceDate })
     } finally {
       setGenerating(false)
     }
@@ -128,12 +169,14 @@ export default function PdfGenerator() {
     setMandataire(p => ({ ...p, name: company.name || p.name, address: company.address || p.address, zip: company.zip || p.zip, city: company.city || p.city }))
   }
 
-  const generateProcuration = () => {
+  const generateProcuration = async () => {
     if (!mandant.name.trim() || !mandataire.name.trim()) { alert('Merci de renseigner le mandant et le mandataire.'); return }
     setGenerating(true)
     try {
       const doc = buildProcurationPDF({ mandant, mandataire, vehicle: procVehicle, purpose, place, date: procDate })
-      doc.save(`Procuration-${(mandant.name || 'document').replace(/\s+/g, '_')}.pdf`)
+      const filename = `Procuration-${(mandant.name || 'document').replace(/\s+/g, '_')}.pdf`
+      doc.save(filename)
+      await saveCopyToDocuments({ doc, filename, category: 'Contrat', vehicleId: procVehicleId, date: procDate })
     } finally {
       setGenerating(false)
     }
