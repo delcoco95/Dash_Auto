@@ -3,6 +3,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import Layout from '../../../components/Layout'
 import FilePreviewModal from '../../../components/FilePreviewModal'
+import AdminTabs from '../../../components/AdminTabs'
 import DocumentUploadForm, { DOC_CATS, DOC_STATUSES } from '../../../components/DocumentUploadForm'
 import { Plus, Trash2, X, FolderOpen } from 'lucide-react'
 import { fmtDate, fmt, vehicleLabel } from '../../../lib/format'
@@ -52,6 +53,8 @@ export default function DocumentsGlobal() {
       </div>
 
       <div className="page-body">
+        <AdminTabs />
+
         {/* ── Filtres ── */}
         <div className="search-filter-bar">
           <div className="search-input-wrapper">

@@ -1,0 +1,102 @@
+[
+ {
+  "kind": "CA3",
+  "form": "3310-CA3",
+  "period_start": "2026-01-01",
+  "period_end": "2026-01-31",
+  "due_date": "2026-02-24",
+  "status": "déposée",
+  "filed_date": "2026-04-28",
+  "deposit_number": "TVA-2026118-0000000199160028",
+  "amount_declared": 0,
+  "credit_carried": 0,
+  "notes": "Néant"
+ },
+ {
+  "kind": "CA3",
+  "form": "3310-CA3",
+  "period_start": "2026-02-01",
+  "period_end": "2026-02-28",
+  "due_date": "2026-03-24",
+  "status": "déposée",
+  "filed_date": "2026-04-28",
+  "deposit_number": "TVA-2026118-0000000199160193",
+  "amount_declared": 0,
+  "credit_carried": 0,
+  "notes": "TVA brute 90 / déductible 90 (autoliquidation frais Auto1)"
+ },
+ {
+  "kind": "CA3",
+  "form": "3310-CA3",
+  "period_start": "2026-03-01",
+  "period_end": "2026-03-31",
+  "due_date": "2026-04-24",
+  "status": "déposée",
+  "filed_date": "2026-04-29",
+  "deposit_number": "TVA-2026119-0000000199161323",
+  "amount_declared": 0,
+  "credit_carried": 0,
+  "notes": "Néant"
+ },
+ {
+  "kind": "CA3",
+  "form": "3310-CA3",
+  "period_start": "2026-04-01",
+  "period_end": "2026-04-30",
+  "due_date": "2026-05-26",
+  "status": "déposée",
+  "filed_date": "2026-06-08",
+  "deposit_number": "TVA-2026159-0000000201958682",
+  "amount_declared": 0,
+  "credit_carried": 0,
+  "notes": "TVA brute 144 / déductible 144 (autoliquidation frais Auto1)"
+ },
+ {
+  "kind": "IS_ACOMPTE",
+  "form": "2571",
+  "period_start": "2026-01-01",
+  "period_end": "2026-12-31",
+  "due_date": "2026-03-16",
+  "status": "déposée",
+  "filed_date": "2026-05-23",
+  "deposit_number": "IS-2026143-0000000201282194",
+  "amount_declared": 0,
+  "notes": "Acompte 1"
+ },
+ {
+  "kind": "IS_ACOMPTE",
+  "form": "2571",
+  "period_start": "2026-01-01",
+  "period_end": "2026-12-31",
+  "due_date": "2026-06-15",
+  "status": "déposée",
+  "filed_date": "2026-05-23",
+  "deposit_number": "IS-2026143-0000000201282209",
+  "amount_declared": 0,
+  "notes": "Acompte 2"
+ },
+ {
+  "kind": "IS_SOLDE",
+  "form": "2572",
+  "period_start": "2024-11-26",
+  "period_end": "2025-12-31",
+  "due_date": "2026-05-15",
+  "status": "déposée",
+  "filed_date": "2026-05-23",
+  "deposit_number": "IS-2026143-0000000201282135",
+  "amount_declared": 0,
+  "notes": "Relevé de solde exercice 2024-2025"
+ },
+ {
+  "kind": "IS_RESULTAT",
+  "form": "2065",
+  "period_start": "2024-11-26",
+  "period_end": "2025-12-31",
+  "due_date": "2026-05-20",
+  "status": "déposée",
+  "filed_date": "2026-06-11",
+  "deposit_number": "ISRESULTAT-2026162-0000000202260111",
+  "amount_declared": 0,
+  "notes": "Liasse 2065 + 2033 A-G — déficit 413 €"
+ }
+]

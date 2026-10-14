@@ -160,3 +160,67 @@ class Event(Base):
     created_at = Column(DateTime, server_default=func.now())
     vehicle = relationship('Vehicle')
 
+
+
+# ══════════════════════════════════════════════════════════════
+# FISCALITÉ (TVA, IS, échéances)
+# Tables nouvelles : créées automatiquement par init_db() (create_all),
+# aucune modification des tables existantes.
+# ══════════════════════════════════════════════════════════════
+
+class FiscalEntry(Base):
+    """Pièce fiscale : une facture d'achat (ou de frais) avec son traitement TVA.
+
+    kind :
+      - 'achat_vehicule_marge' : prix d'achat du véhicule d'occasion (régime de la marge,
+        pas de TVA déductible) — sert de base au calcul de la marge à la revente.
+      - 'service_ue'           : prestation facturée HT par un prestataire de l'UE
+        (frais/transport Auto1 Berlin) → TVA autoliquidée (due + déductible).
+      - 'achat_fr_tva'         : facture française avec TVA → TVA déductible (ligne 20).
+      - 'immobilisation'       : bien durable (outillage, ordinateur…) → ligne 19.
+      - 'sans_tva'             : dépense sans TVA (commission, particulier, frais admin).
+    """
+    __tablename__ = 'fiscal_entries'
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='SET NULL'), nullable=True, index=True)
+    charge_id = Column(Integer, ForeignKey('charges.id', ondelete='SET NULL'), nullable=True)
+    intervention_id = Column(Integer, ForeignKey('interventions.id', ondelete='SET NULL'), nullable=True)
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True)
+    date = Column(Date, index=True)                     # date de la FACTURE (décide du mois)
+    kind = Column(String, index=True)
+    label = Column(String, nullable=True)
+    supplier = Column(String, nullable=True)
+    country = Column(String, default='FR')              # FR / DE / … (pays du fournisseur)
+    invoice_ref = Column(String, nullable=True)
+    amount_ht = Column(Float, default=0.0)              # montant hors taxe (ou montant total si sans TVA)
+    vat_rate = Column(Float, default=20.0)
+    vat_amount = Column(Float, default=0.0)             # TVA facturée (achat_fr_tva / immobilisation)
+    has_invoice = Column(Integer, default=1)            # 1 = facture en main
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    vehicle = relationship('Vehicle')
+
+
+class TaxDeclaration(Base):
+    """Suivi d'une déclaration (déposée ou non) : CA3, acomptes IS, CVAE, etc."""
+    __tablename__ = 'tax_declarations'
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String, index=True)                   # CA3 / IS_ACOMPTE / IS_SOLDE / IS_RESULTAT / CVAE / CFE / AUTRE
+    form = Column(String, nullable=True)                # 3310-CA3, 2571, 2572, 2065, 1329-AC…
+    period_start = Column(Date, nullable=True)
+    period_end = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
+    status = Column(String, default='à faire')          # à faire / déposée / payée / non due
+    filed_date = Column(Date, nullable=True)
+    deposit_number = Column(String, nullable=True)
+    amount_declared = Column(Float, nullable=True)      # montant payé / TVA nette due déclarée
+    credit_carried = Column(Float, nullable=True)       # ligne 27 déclarée (crédit à reporter)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class TaxSetting(Base):
+    """Paramètres fiscaux de la société (clé / valeur)."""
+    __tablename__ = 'tax_settings'
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=True)
