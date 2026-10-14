@@ -8,3 +8,4 @@ openai
 psycopg2-binary
 passlib[bcrypt]
 python-jose[cryptography]
+psycopg[binary]
