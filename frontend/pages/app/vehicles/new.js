@@ -4,8 +4,9 @@ import Layout from '../../../components/Layout'
 import VehicleForm from '../../../components/VehicleForm'
 import QuickVehicleForm from '../../../components/QuickVehicleForm'
 import { AlertTriangle } from 'lucide-react'
+import { API_URL } from '../../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 
 export default function NewVehicle() {
   const router = useRouter()

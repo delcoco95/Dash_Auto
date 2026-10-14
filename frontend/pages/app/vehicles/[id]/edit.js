@@ -5,8 +5,9 @@ import Link from 'next/link'
 import Layout from '../../../../components/Layout'
 import VehicleForm from '../../../../components/VehicleForm'
 import { Pencil, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { API_URL } from '../../../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 export default function EditVehicle() {

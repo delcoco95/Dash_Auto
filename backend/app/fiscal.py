@@ -51,6 +51,7 @@ DEFAULT_SETTINGS = {
     'is_reference_amount': '0',     # IS de l'exercice précédent (acomptes dus si > 3 000 €)
     'is_deficit_carryforward': '413',  # déficit reportable (exercice 2024-2025)
     'fiscal_year_end': '12-31',
+    'excluded_vehicle_ids': '',     # véhicules ignorés (ex. achat futur pas encore réalisé), ids séparés par des virgules
 }
 
 
@@ -143,6 +144,15 @@ class _Data:
         self.interventions = db.query(models.Intervention).all()
         self.declarations = db.query(models.TaxDeclaration).all()
         self.settings = get_settings(db)
+        # Véhicules exclus du calcul fiscal (ex. achat pas encore réalisé)
+        self.excluded = {int(x) for x in str(self.settings.get('excluded_vehicle_ids') or '').replace(';', ',').split(',')
+                         if x.strip().isdigit()}
+        if self.excluded:
+            ex = self.excluded
+            self.vehicles = [v for v in self.vehicles if v.id not in ex]
+            self.entries = [e for e in self.entries if e.vehicle_id not in ex]
+            self.charges = [c for c in self.charges if c.vehicle_id not in ex]
+            self.interventions = [i for i in self.interventions if i.vehicle_id not in ex]
         self.veh = {v.id: v for v in self.vehicles}
         self.entries_by_vehicle = defaultdict(list)
         for e in self.entries:

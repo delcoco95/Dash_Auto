@@ -10,8 +10,9 @@ import { Plus, Trash, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Layout from '../../components/Layout'
 import { fmtDateTime, vehicleLabel } from '../../lib/format'
+import { API_URL } from '../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 const locales = { fr: frLocale }

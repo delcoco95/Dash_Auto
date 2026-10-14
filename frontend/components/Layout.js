@@ -18,8 +18,9 @@ import {
   X,
   FileSignature
 } from 'lucide-react'
+import { API_URL } from '../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 const navLinks = [
@@ -87,8 +88,8 @@ export default function Layout({ children, title = 'Dash Auto' }) {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
 
-      // Supprimer le cookie côté client au cas où l'ancienne méthode était utilisée
-      document.cookie = 'dash_auto_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+      // Le cookie de session est HttpOnly : il est effacé par le serveur.
+      await fetch('/api/auth/logout', { method: 'POST' })
       toast.success('Déconnexion réussie')
       router.push('/login')
     } catch (error) {

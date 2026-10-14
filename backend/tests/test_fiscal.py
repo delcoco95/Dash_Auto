@@ -109,3 +109,21 @@ def test_entry_crud():
     client.put(f'/fiscal/entries/{eid}', json={'has_invoice': False})
     assert vat(7)['lines']['20'] == 0
     assert client.delete(f'/fiscal/entries/{eid}').status_code == 200
+
+
+def test_api_secret_protection(monkeypatch):
+    import app.main as main
+    monkeypatch.setattr(main, 'API_SECRET', 'secret-test')
+    assert client.get('/vehicles').status_code == 401
+    assert client.get('/vehicles', headers={'X-Api-Secret': 'mauvais'}).status_code == 401
+    assert client.get('/vehicles', headers={'X-Api-Secret': 'secret-test'}).status_code == 200
+    assert client.get('/health').status_code == 200
+
+
+def test_excluded_vehicle():
+    before = client.get('/fiscal/overview?year=2026').json()['is']['commissions']
+    client.put('/fiscal/settings', json={'excluded_vehicle_ids': '15'})
+    after = client.get('/fiscal/overview?year=2026').json()['is']
+    assert after['commissions'] == before - 1758
+    assert 'Mercedes Benz Class-C200 - FP-926-RB' not in after['stock_fin']['vehicles']
+    client.put('/fiscal/settings', json={'excluded_vehicle_ids': ''})

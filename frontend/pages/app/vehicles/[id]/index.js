@@ -14,8 +14,9 @@ import {
   Car, Euro, Settings2, StickyNote, Pencil, Trash2, CheckCircle2,
   AlertCircle, AlertTriangle, Star, Plus,
 } from 'lucide-react'
+import { API_URL } from '../../../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 const STATE_COLORS = { excellent: '#00d4aa', bon: '#6c63ff', correct: '#f5a623', mauvais: '#ff4d6d' }

@@ -9,8 +9,9 @@ import { MONTHS, ENTRY_KINDS, ENTRY_KIND_HELP, CA3_CASES, statusBadge, eur } fro
 import {
   Plus, X, Pencil, Trash2, AlertTriangle, Info, CheckCircle2, Settings, CalendarClock, Receipt, Landmark, ExternalLink,
 } from 'lucide-react'
+import { API_URL } from '../../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() })
 const IMPOTS_URL = 'https://cfspro.impots.gouv.fr/'
 
@@ -224,6 +225,7 @@ function SettingsForm({ settings, onSaved, onCancel }) {
     ['vat_due_day', 'Jour limite CA3 (mois suivant)'], ['first_vat_month', 'Premier mois suivi (AAAA-MM)'],
     ['initial_vat_credit', 'Crédit de TVA au début du suivi (€)'], ['is_reference_amount', "IS de l'exercice précédent (€)"],
     ['is_deficit_carryforward', 'Déficit reportable (€)'],
+    ['excluded_vehicle_ids', 'Véhicules exclus (n° séparés par des virgules — ex. achat pas encore fait)'],
   ]
   const submit = async (e) => {
     e.preventDefault()

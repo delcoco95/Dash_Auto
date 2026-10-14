@@ -5,8 +5,9 @@ import Layout from '../../components/Layout'
 import { buildInvoicePDF, buildProcurationPDF } from '../../lib/pdfGenerator'
 import { supabase } from '../../lib/supabase'
 import { Receipt, FileSignature, Plus, Trash2, Download, Wand2 } from 'lucide-react'
+import { API_URL } from '../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 const ITEM_CATS = ['Main d’œuvre', 'Pièce', 'Entretien', 'Réparation', 'Diagnostic', 'Forfait', 'Autre']

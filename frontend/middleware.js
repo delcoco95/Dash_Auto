@@ -1,33 +1,25 @@
 import { NextResponse } from 'next/server'
+import { SESSION_COOKIE, verifySessionToken } from './lib/session'
 
-export function middleware(req) {
-  const sessionCookie = req.cookies.get('dash_auto_session')
-  const isAuthenticated = sessionCookie?.value === 'authenticated'
+export async function middleware(req) {
+  const isAuthenticated = await verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value)
+  const { pathname } = req.nextUrl
 
-  // We require auth for paths starting with /app
-  if (req.nextUrl.pathname.startsWith('/app')) {
-    if (isAuthenticated) {
-      return NextResponse.next()
-    }
-    
-    // Redirect to login if not authenticated
+  // Toutes les pages /app exigent une session valide (cookie signé).
+  if (pathname.startsWith('/app')) {
+    if (isAuthenticated) return NextResponse.next()
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Redirect to login instead of root landing page if not authenticated
-  if (req.nextUrl.pathname === '/') {
-    if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/app/dashboard', req.url))
-    }
-    return NextResponse.redirect(new URL('/login', req.url))
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL(isAuthenticated ? '/app/dashboard' : '/login', req.url))
   }
 
-  // If going to /login but already authenticated, redirect to /app/dashboard
-  if (req.nextUrl.pathname === '/login') {
-    if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/app/dashboard', req.url))
-    }
+  if (pathname === '/login' && isAuthenticated) {
+    return NextResponse.redirect(new URL('/app/dashboard', req.url))
   }
 
   return NextResponse.next()
 }
+
+export const config = { matcher: ['/', '/login', '/app/:path*'] }

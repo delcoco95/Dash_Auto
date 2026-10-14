@@ -8,8 +8,9 @@ import DocumentUploadForm, { DOC_CATS, DOC_STATUSES } from '../../../components/
 import { Plus, Trash2, X, FolderOpen } from 'lucide-react'
 import { fmtDate, fmt, vehicleLabel } from '../../../lib/format'
 import { isExpiring, isExpired, getDocIcon, docStatusBadgeClass } from '../../../lib/documents'
+import { API_URL } from '../../../lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const fetcher = (url) => fetch(url).then(r => r.json())
 
 export default function DocumentsGlobal() {

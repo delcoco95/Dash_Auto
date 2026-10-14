@@ -1,3 +1,4 @@
+import hmac
 import os
 import uuid
 from typing import List, Optional
@@ -7,6 +8,7 @@ load_dotenv()
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -22,6 +24,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Protection de l'API ──────────────────────────────────────
+# Si API_SECRET est défini (Render), toute requête doit porter l'en-tête
+# X-Api-Secret : seul le proxy Next.js (serveur Vercel) le connaît.
+# Exceptions : /health (supervision) et /automation/* (protégé par sa propre clé).
+API_SECRET = os.getenv("API_SECRET")
+OPEN_PATHS = ("/health",)
+
+
+@app.middleware("http")
+async def require_api_secret(request, call_next):
+    path = request.url.path
+    if (API_SECRET and request.method != "OPTIONS" and path not in OPEN_PATHS
+            and not path.startswith("/automation")):
+        provided = request.headers.get("x-api-secret") or ""
+        if not hmac.compare_digest(provided, API_SECRET):
+            return JSONResponse(status_code=401, content={"detail": "Accès non autorisé"})
+    return await call_next(request)
+
 
 init_db()
 
