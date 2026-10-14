@@ -265,5 +265,47 @@
   "vat_amount": 0,
   "has_invoice": true,
   "notes": "Transport intracommunautaire HT — TVA autoliquidée"
+ },
+ {
+  "vehicle_id": 21,
+  "date": "2026-10-12",
+  "kind": "achat_vehicule_marge",
+  "label": "Véhicule Swift EH-397-KY",
+  "supplier": "AUTO1 European Cars B.V.",
+  "country": "FR",
+  "invoice_ref": "90012601147482",
+  "amount_ht": 1000,
+  "vat_rate": 0,
+  "vat_amount": 0,
+  "has_invoice": true,
+  "notes": "Facture véhicule d'occasion — TVA sur marge (Auto1)"
+ },
+ {
+  "vehicle_id": 21,
+  "date": "2026-10-12",
+  "kind": "service_ue",
+  "label": "Frais de services Auto1 Swift EH-397-KY",
+  "supplier": "AUTO1 Group Operations SE (Berlin)",
+  "country": "DE",
+  "invoice_ref": "10026011111902",
+  "amount_ht": 637,
+  "vat_rate": 20,
+  "vat_amount": 0,
+  "has_invoice": true,
+  "notes": "Prestation intracommunautaire HT — TVA autoliquidée"
+ },
+ {
+  "vehicle_id": 9,
+  "date": "2026-07-20",
+  "kind": "achat_vehicule_marge",
+  "label": "Véhicule C2 GD-427-PW (achat à un particulier)",
+  "supplier": "Particulier",
+  "country": "FR",
+  "invoice_ref": "DA-GD-427-PW",
+  "amount_ht": 400,
+  "vat_rate": 0,
+  "vat_amount": 0,
+  "has_invoice": true,
+  "notes": "Achat à un particulier — justificatif : certificat de cession / déclaration d'achat"
  }
 ]

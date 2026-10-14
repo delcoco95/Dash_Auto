@@ -6,7 +6,7 @@ automatiquement au démarrage).
 
 | Fichier | Contenu | Source |
 |---|---|---|
-| `fiscal_entries_auto1.json` | 19 factures Auto1 (prix véhicule « TVA sur marge » + frais/transport Auto1 Berlin autoliquidés) de février à septembre 2026 | Factures téléchargées depuis Mes commandes Auto1 (14/10/2026) |
+| `fiscal_entries_auto1.json` | 21 factures Auto1 (prix véhicule « TVA sur marge » + frais/transport Auto1 Berlin autoliquidés) de février à octobre 2026, et l'achat de la C2 à un particulier | Factures téléchargées depuis Mes commandes Auto1 (14/10/2026) |
 | `tax_declarations_history.json` | Déclarations déjà déposées : CA3 janvier→avril 2026, acomptes IS 1 et 2, 2572 et 2065 (exercice 2024-2025) | Accusés de réception du dossier « Déclaration impots » |
 
 Import (l'import ignore les doublons de n° de facture) :

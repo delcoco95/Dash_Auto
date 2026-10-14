@@ -49,7 +49,7 @@ def vat(m):
 
 def test_bulk_dedup():
     r = client.post('/fiscal/entries/bulk', json=json.load(open(os.path.join(data_dir, 'fiscal_entries_auto1.json'), encoding='utf-8')))
-    assert r.json() == {'created': 0, 'skipped': 19}
+    assert r.json() == {'created': 0, 'skipped': 22}
 
 
 def test_feb_matches_filed_declaration():
