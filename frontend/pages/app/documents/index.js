@@ -89,7 +89,6 @@ export default function DocumentsGlobal() {
             <option value="created_desc">Plus récents (ajout)</option>
             <option value="date_desc">Date du document (récent)</option>
             <option value="date_asc">Date du document (ancien)</option>
-            <option value="amount_desc">Montant décroissant</option>
           </select>
         </div>
 
@@ -113,8 +112,6 @@ export default function DocumentsGlobal() {
                     <th>Véhicule</th>
                     <th>Catégorie</th>
                     <th>Date doc.</th>
-                    <th>Expiration</th>
-                    <th>Montant</th>
                     <th>Statut</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -150,14 +147,6 @@ export default function DocumentsGlobal() {
                         </td>
                         <td className="muted" data-label="Catégorie">{d.category || '—'}</td>
                         <td className="muted" data-label="Date">{fmtDate(d.date)}</td>
-                        <td data-label="Expiration">
-                          {d.expiration_date ? (
-                            <span style={{ color: expired ? 'var(--danger)' : expiring ? 'var(--warning-dark)' : 'inherit', fontWeight: (expired || expiring) ? 600 : 400 }}>
-                              {fmtDate(d.expiration_date)}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td data-label="Montant" style={{ fontWeight: d.amount ? 600 : 400 }}>{fmt(d.amount)}</td>
                         <td data-label="Statut">
                           <span className={`badge ${docStatusBadgeClass(d.status)}`}>{d.status || 'valide'}</span>
                         </td>

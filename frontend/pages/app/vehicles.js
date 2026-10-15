@@ -205,11 +205,13 @@ export default function Vehicles() {
                       <td className="muted" data-label="Km">{fmtKm(v.km)}</td>
                       <td data-label="Achat">{fmt(v.price_buy)}</td>
                       <td data-label="Vente">
-                        {v.price_sell ? (
+                        {v.price_sell ? ((v.date_sell || v.status === 'vendu') ? (
                           <span style={{ color: (v.price_sell - v.price_buy) >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                             {fmt(v.price_sell)}
                           </span>
-                        ) : '—'}
+                        ) : (
+                          <span className="muted" title="Prix affiché / visé — véhicule pas encore vendu">{fmt(v.price_sell)} <small>(visé)</small></span>
+                        )) : '—'}
                       </td>
                       <td data-label="Statut"><StatusBadge status={v.status} /></td>
                     </tr>

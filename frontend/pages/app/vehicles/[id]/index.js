@@ -265,7 +265,11 @@ export default function VehicleDetail() {
   // Coût réel si connu, sinon estimation ; les travaux annulés ne comptent pas.
   const interventionCost = (i) => i.status === 'annulée' ? 0 : (i.cost_actual ?? i.cost_estimated ?? 0)
   const totalInterventions = (interventions || []).reduce((s, i) => s + interventionCost(i), 0)
-  const profit = vehicle.price_sell != null && vehicle.price_buy != null
+  const isSold = !!vehicle.date_sell || vehicle.status === 'vendu'
+  const profit = isSold && vehicle.price_sell != null && vehicle.price_buy != null
+    ? vehicle.price_sell - vehicle.price_buy - totalCharges - totalInterventions : null
+  // Véhicule non vendu : le prix de vente est le prix affiché / visé → marge prévisionnelle
+  const plannedProfit = !isSold && vehicle.price_sell != null && vehicle.price_buy != null
     ? vehicle.price_sell - vehicle.price_buy - totalCharges - totalInterventions : null
 
   const customFields = (() => {
@@ -373,12 +377,15 @@ export default function VehicleDetail() {
                   <InfoItem label="Date d'achat"    value={fmtDate(vehicle.date_buy)} />
                   <InfoItem label="Prix d'achat"    value={fmt(vehicle.price_buy)} />
                   <InfoItem label="Date de vente"   value={fmtDate(vehicle.date_sell)} />
-                  <InfoItem label="Prix de vente"   value={fmt(vehicle.price_sell)} />
+                  <InfoItem label={isSold ? 'Prix de vente' : 'Prix de vente visé'} value={fmt(vehicle.price_sell)} />
                   <InfoItem label="Valeur estimée"  value={fmt(vehicle.estimated_value)} />
                   <InfoItem label="Total charges"   value={fmt(totalCharges)} color="var(--danger)" />
                   <InfoItem label="Total travaux"   value={fmt(totalInterventions)} color="var(--danger)" />
                   {profit !== null && (
                     <InfoItem label="Profit net"    value={fmt(profit)} color={profit >= 0 ? 'var(--success)' : 'var(--danger)'} />
+                  )}
+                  {plannedProfit !== null && (
+                    <InfoItem label="Marge prévue (si vendu à ce prix)" value={fmt(plannedProfit)} color="var(--text-secondary)" />
                   )}
                 </div>
               </div>

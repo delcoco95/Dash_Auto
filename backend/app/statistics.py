@@ -37,7 +37,10 @@ def compute_kpis(db: Session):
     for v in vehicles:
         if v.price_buy:
             total_buy += v.price_buy
-        if v.price_sell:
+        # Un véhicule n'est vendu que s'il a une date de vente (ou le statut « vendu »).
+        # Sinon, price_sell est le prix affiché / visé : il ne compte ni dans les ventes ni dans le profit.
+        is_sold = bool(v.date_sell) or (v.status or '').lower() == 'vendu'
+        if v.price_sell and is_sold:
             total_sell += v.price_sell
             count_sold += 1
             # duration in days
