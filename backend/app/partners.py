@@ -123,13 +123,14 @@ def summary(db: Session = Depends(get_db)):
             b[k] = round(b[k], 2)
 
     vmap = {v.id: v for v in vehicles}
-    recent = []
-    for c in comms[:8]:
+    all_comms = []
+    for c in comms:
         item = _c(c)
         item['vehicle'] = vehicle_label(vmap.get(c.vehicle_id)) if c.vehicle_id in vmap else None
-        recent.append(item)
+        all_comms.append(item)
+    recent = all_comms[:8]
 
-    return {'partners': partners, 'by_partner': list(by.values()), 'vehicles': rows, 'recent': recent, 'unlinked': [_c(c) for c in comms if not c.vehicle_id],
+    return {'partners': partners, 'by_partner': list(by.values()), 'vehicles': rows, 'recent': recent, 'commissions': all_comms, 'unlinked': [_c(c) for c in comms if not c.vehicle_id],
             'unassigned': sum(1 for r in rows if not r['bought_by'] or (r['sold'] and not r['sold_by']))}
 
 

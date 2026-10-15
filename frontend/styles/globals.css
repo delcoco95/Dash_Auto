@@ -1603,17 +1603,7 @@ tr.row-warning td { background: var(--warning-light); }
 /* ── Associés ─────────────────────────────────────────────── */
 .partner-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .partner-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--success-light); color: var(--success); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
-.partner-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; margin-bottom: 24px; }
-.deal-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.6fr); gap: 16px; padding: 14px 18px; border-top: 1px solid var(--border); align-items: center; }
-.deal-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.deal-selects label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px; }
-.deal-comms { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
-.comm-chip { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; border-radius: 99px; font-size: 12px; border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; font-family: inherit; color: var(--text-primary); }
-.comm-chip.due { border-color: var(--warning); }
-.comm-chip.paid { background: var(--success-light); border-color: transparent; }
-@media (max-width: 860px) {
-  .deal-row { grid-template-columns: 1fr; gap: 10px; }
-  .deal-comms { justify-content: flex-start; }
-}
+.comm-form { display: grid; gap: 10px; padding: 14px; margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-main); }
+.comm-total { display: flex; gap: 10px; align-items: baseline; padding: 8px 14px; border-radius: 99px; background: var(--success-light); color: var(--success); font-size: 13px; }
 .dashboard-grid-2 > * { min-width: 0; }
 .kpi-grid.kpi-grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); }

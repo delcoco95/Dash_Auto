@@ -189,7 +189,7 @@ export default function Dashboard() {
     } else if (activeModal === 'achats') {
       items = tracked.filter(v => v.price_buy)
         .sort((a, b) => new Date(b.date_buy) - new Date(a.date_buy))
-        .map(v => ({ id: v.id, date: v.date_buy, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_buy, type: 'negative', group: groupOf(v.id) }))
+        .map(v => ({ id: v.id, date: v.date_buy, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_buy, type: 'negative', group: 'sold' }))
     } else if (activeModal === 'charges' && charges) {
       items = charges.filter(c => !excluded.has(c.vehicle_id))
         .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -230,44 +230,31 @@ export default function Dashboard() {
 
     if (items.length === 0) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Aucune transaction trouvée.</div>
 
-    const GROUPS = [
-      ['sold', 'Véhicules vendus — compté dans le profit'],
-      ['stock', 'Véhicules en stock — argent immobilisé, récupéré à la vente'],
-      ['planned', 'Prévu — pas encore dépensé, non compté'],
-    ]
+    // La liste correspond exactement au montant de la carte (stock = bulle « Argent en stock »)
+    const shown = items.filter(it => it.group === (activeModal === 'stock' ? 'stock' : 'sold'))
+    if (shown.length === 0) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Aucune transaction trouvée.</div>
     return (
       <div className="transaction-list">
-        {GROUPS.filter(([g]) => items.some(it => it.group === g)).map(([g, label]) => {
-          const list = items.filter(it => it.group === g)
-          const total = list.reduce((a, it) => a + (it.amount || 0), 0)
-          return (
-            <div key={g} style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em', color: 'var(--text-secondary)', padding: '8px 0', borderBottom: '2px solid var(--border-color, #eaeaea)' }}>
-                <span>{label}</span><span>{fmt(total)}</span>
+        {shown.map((item, idx) => (
+          <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid #eaeaea' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>
+                {item.vehicleName ? (
+                  <>
+                    <span>{item.vehicleName}</span>
+                    {item.vehicleReg && <span style={{ color: '#1976d2', marginLeft: 8 }}>{item.vehicleReg}</span>}
+                  </>
+                ) : item.title}
               </div>
-              {list.map((item, idx) => (
-                <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid #eaeaea', opacity: g === 'planned' ? 0.6 : 1 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
-                      {item.vehicleName ? (
-                        <>
-                          <span>{item.vehicleName}</span>
-                          {item.vehicleReg && <span style={{ color: '#1976d2', marginLeft: 8 }}>{item.vehicleReg}</span>}
-                        </>
-                      ) : item.title}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#888' }}>
-                      {[item.subtitle, item.date && fmtDate(item.date)].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: 600, whiteSpace: 'nowrap', color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
-                    {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
-                  </div>
-                </div>
-              ))}
+              <div style={{ fontSize: 12, color: '#888' }}>
+                {[item.subtitle, item.date && fmtDate(item.date)].filter(Boolean).join(' · ')}
+              </div>
             </div>
-          )
-        })}
+            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
+              {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -306,13 +293,13 @@ export default function Dashboard() {
         <KpiCard primary title="Profit Net Global" value={fmt(profit)} onOpen={() => setActiveModal('profit')}
           trend={<><span className="kpi-trend-badge">{isProfitNeg ? '-' : '+'} Réalisé</span>{stats.count_sold} véhicule(s) vendu(s)</>} />
         <KpiCard title="Total Ventes" value={fmt(stats.total_sell ?? 0)} onOpen={() => setActiveModal('ventes')}
-          trend="Véhicules vendus uniquement" />
-        <KpiCard title="Achats" value={fmt(stats.total_buy ?? 0)} onOpen={() => setActiveModal('achats')}
-          trend={`des véhicules vendus · + ${fmt(stats.stock_buy)} en stock`} />
+          trend="Voir le détail" />
+        <KpiCard title="Achats" value={fmt(stats.all_buy ?? 0)} onOpen={() => setActiveModal('achats')}
+          trend="Tous les véhicules achetés" />
         <KpiCard title="Charges" value={fmt(stats.total_charges ?? 0)} onOpen={() => setActiveModal('charges')}
-          trend={`des véhicules vendus · + ${fmt(stats.stock_charges)} en stock`} />
+          trend="Voir le détail" />
         <KpiCard title="Travaux" value={fmt(stats.total_interventions ?? 0)} onOpen={() => setActiveModal('travaux')}
-          trend={`des véhicules vendus · + ${fmt(stats.stock_interventions)} en stock`} />
+          trend="Voir le détail" />
         <KpiCard title="Argent en stock" value={fmt(stats.stock_invested ?? 0)} onOpen={() => setActiveModal('stock')}
           trend={`${stats.stock_count} véhicule(s) · prix visé ${fmt(stats.stock_target)}`} />
       </div>
