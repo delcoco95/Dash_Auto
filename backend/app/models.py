@@ -250,3 +250,28 @@ class VehicleSale(Base):
     km_sale = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class VehicleDeal(Base):
+    """Qui a acheté / vendu le véhicule (associés : Nedj, Mams…)."""
+    __tablename__ = 'vehicle_deals'
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='CASCADE'), primary_key=True)
+    bought_by = Column(String, nullable=True)
+    sold_by = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PartnerCommission(Base):
+    """Investissement et commission d'un associé sur un véhicule.
+    Suivi séparé : n'entre ni dans le profit net, ni dans les charges, ni dans la TVA."""
+    __tablename__ = 'partner_commissions'
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='CASCADE'), nullable=True, index=True)
+    partner = Column(String, nullable=False, index=True)
+    invested = Column(Float, nullable=True)       # somme apportée sur le véhicule
+    commission = Column(Float, nullable=True)     # commission prise
+    date = Column(Date, nullable=True)
+    status = Column(String, default='à verser')   # à verser / versée
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

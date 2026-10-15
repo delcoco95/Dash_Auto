@@ -1,76 +1,133 @@
-from datetime import date
+"""Indicateurs du tableau de bord.
+
+Règles (pour que les cartes s'additionnent) :
+- Profit net = Ventes − Achats − Charges − Travaux, calculés **sur les véhicules vendus**
+  (+ les charges générales non rattachées à un véhicule).
+- Les véhicules en stock sont présentés à part (« argent immobilisé ») : leur achat et
+  leurs frais déjà payés ne sont pas une perte, ils seront récupérés à la vente.
+- Un travail « à prévoir » sans coût réel n'est pas une dépense : il apparaît en « prévu ».
+- Les véhicules exclus du suivi (réglage excluded_vehicle_ids, ex. achat futur) sont ignorés.
+- Les commissions des associés ne sont pas prises en compte ici (suivi séparé).
+"""
+from collections import defaultdict
 from sqlalchemy.orm import Session
 from . import models
-from .finance import intervention_cost, vehicle_profit
-from collections import defaultdict
+from .finance import vehicle_profit
+
+SPENT_STATUSES = ('terminée', 'en cours')
+
+
+def intervention_spent(i) -> float:
+    """Montant réellement engagé pour un travail (0 s'il est seulement prévu ou annulé)."""
+    if i.status == 'annulée':
+        return 0.0
+    if i.cost_actual is not None:
+        return float(i.cost_actual)
+    if i.status in SPENT_STATUSES:
+        return float(i.cost_estimated or 0.0)
+    return 0.0
+
+
+def intervention_planned(i) -> float:
+    if i.status == 'annulée' or intervention_spent(i):
+        return 0.0
+    return float(i.cost_estimated or 0.0)
+
+
+def is_sold(v) -> bool:
+    return bool(v.date_sell) or (v.status or '').lower() == 'vendu'
+
+
+def excluded_ids(db: Session) -> set:
+    s = db.query(models.TaxSetting).filter(models.TaxSetting.key == 'excluded_vehicle_ids').first()
+    raw = (s.value if s else '') or ''
+    return {int(x) for x in raw.replace(';', ',').split(',') if x.strip().isdigit()}
 
 
 def compute_kpis(db: Session):
-    # Basic KPIs computed from vehicles, charges and interventions (travaux)
-    vehicles = db.query(models.Vehicle).all()
-    charges = db.query(models.Charge).all()
-    interventions = db.query(models.Intervention).all()
+    excl = excluded_ids(db)
+    vehicles = [v for v in db.query(models.Vehicle).all() if v.id not in excl]
+    charges = [c for c in db.query(models.Charge).all() if c.vehicle_id not in excl]
+    interventions = [i for i in db.query(models.Intervention).all() if i.vehicle_id not in excl]
 
-    total_buy = 0.0
-    total_sell = 0.0
-    total_charges = 0.0
-    total_interventions = 0.0
-    count_sold = 0
-    durations = []
-    profits = []
-    by_category = defaultdict(float)
-
-    veh_map = {v.id: v for v in vehicles}
     charges_by_vehicle = defaultdict(float)
-    interventions_by_vehicle = defaultdict(float)
-
+    general_charges = 0.0
+    by_category = defaultdict(float)
     for c in charges:
-        total_charges += c.amount
-        by_category[c.category] += c.amount
-        charges_by_vehicle[c.vehicle_id] += c.amount
+        by_category[c.category or 'Autre'] += c.amount or 0
+        if c.vehicle_id:
+            charges_by_vehicle[c.vehicle_id] += c.amount or 0
+        else:
+            general_charges += c.amount or 0
 
+    spent_by_vehicle = defaultdict(float)
+    planned_by_vehicle = defaultdict(float)
     for i in interventions:
-        cost = intervention_cost(i.status, i.cost_estimated, i.cost_actual)
-        total_interventions += cost
-        interventions_by_vehicle[i.vehicle_id] += cost
+        spent_by_vehicle[i.vehicle_id] += intervention_spent(i)
+        planned_by_vehicle[i.vehicle_id] += intervention_planned(i)
+
+    sold = {'sell': 0.0, 'buy': 0.0, 'charges': 0.0, 'works': 0.0, 'count': 0}
+    stock = {'buy': 0.0, 'charges': 0.0, 'works': 0.0, 'planned': 0.0, 'target': 0.0, 'count': 0}
+    durations, profits, per_vehicle = [], [], []
 
     for v in vehicles:
-        if v.price_buy:
-            total_buy += v.price_buy
-        # Un véhicule n'est vendu que s'il a une date de vente (ou le statut « vendu »).
-        # Sinon, price_sell est le prix affiché / visé : il ne compte ni dans les ventes ni dans le profit.
-        is_sold = bool(v.date_sell) or (v.status or '').lower() == 'vendu'
-        if v.price_sell and is_sold:
-            total_sell += v.price_sell
-            count_sold += 1
-            # duration in days
+        ch, wk = charges_by_vehicle.get(v.id, 0.0), spent_by_vehicle.get(v.id, 0.0)
+        if is_sold(v) and v.price_sell:
+            sold['sell'] += v.price_sell
+            sold['buy'] += v.price_buy or 0
+            sold['charges'] += ch
+            sold['works'] += wk
+            sold['count'] += 1
             if v.date_buy and v.date_sell:
                 durations.append((v.date_sell - v.date_buy).days)
-            profit = vehicle_profit(
-                v.price_buy, v.price_sell,
-                charges_by_vehicle.get(v.id, 0.0),
-                interventions_by_vehicle.get(v.id, 0.0),
-            )
-            profits.append({"vehicle_id": v.id, "profit": profit})
+            p = vehicle_profit(v.price_buy or 0, v.price_sell, ch, wk)
+            profits.append({'vehicle_id': v.id, 'profit': round(p, 2)})
+            per_vehicle.append({'vehicle_id': v.id, 'sold': True, 'sell': v.price_sell, 'buy': v.price_buy or 0,
+                                'charges': round(ch, 2), 'works': round(wk, 2), 'profit': round(p, 2)})
+        else:
+            stock['buy'] += v.price_buy or 0
+            stock['charges'] += ch
+            stock['works'] += wk
+            stock['planned'] += planned_by_vehicle.get(v.id, 0.0)
+            stock['target'] += v.price_sell or 0
+            stock['count'] += 1
+            per_vehicle.append({'vehicle_id': v.id, 'sold': False, 'target': v.price_sell, 'buy': v.price_buy or 0,
+                                'charges': round(ch, 2), 'works': round(wk, 2),
+                                'planned': round(planned_by_vehicle.get(v.id, 0.0), 2)})
 
-    avg_duration = sum(durations) / len(durations) if durations else None
-    avg_profit = sum([p['profit'] for p in profits]) / len(profits) if profits else None
-    total_profit = sum([p['profit'] for p in profits])
-
-    top_vehicles = sorted(profits, key=lambda x: x['profit'], reverse=True)[:5]
-    worst_vehicles = sorted(profits, key=lambda x: x['profit'])[:5]
+    total_charges = sold['charges'] + general_charges
+    total_profit = sum(p['profit'] for p in profits) - general_charges
+    stock_invested = stock['buy'] + stock['charges'] + stock['works']
+    r = lambda x: round(x, 2)
 
     return {
-        'total_buy': total_buy,
-        'total_sell': total_sell,
-        'total_charges': total_charges,
-        'total_interventions': total_interventions,
-        'total_profit': total_profit,
-        'avg_profit': avg_profit,
-        'avg_duration_days': avg_duration,
-        'top_vehicles': top_vehicles,
-        'worst_vehicles': worst_vehicles,
+        # Véhicules vendus — Profit = Ventes − Achats − Charges − Travaux
+        'total_sell': r(sold['sell']),
+        'total_buy': r(sold['buy']),
+        'total_charges': r(total_charges),
+        'general_charges': r(general_charges),
+        'total_interventions': r(sold['works']),
+        'total_profit': r(total_profit),
+        'avg_profit': r(total_profit / len(profits)) if profits else None,
+        'avg_duration_days': sum(durations) / len(durations) if durations else None,
+        'count_sold': sold['count'],
+        # Stock (argent immobilisé, pas une perte)
+        'stock_count': stock['count'],
+        'stock_buy': r(stock['buy']),
+        'stock_charges': r(stock['charges']),
+        'stock_interventions': r(stock['works']),
+        'stock_invested': r(stock_invested),
+        'stock_planned': r(stock['planned']),
+        'stock_target': r(stock['target']),
+        # Tout confondu
+        'all_buy': r(sold['buy'] + stock['buy']),
+        'all_charges': r(total_charges + stock['charges']),
+        'all_interventions': r(sold['works'] + stock['works']),
+        'cash_result': r(sold['sell'] - sold['buy'] - stock['buy'] - total_charges - stock['charges'] - sold['works'] - stock['works']),
+        'top_vehicles': sorted(profits, key=lambda x: x['profit'], reverse=True)[:5],
+        'worst_vehicles': sorted(profits, key=lambda x: x['profit'])[:5],
+        'per_vehicle': per_vehicle,
         'expenses_by_category': dict(by_category),
         'count_vehicles': len(vehicles),
-        'count_sold': count_sold
+        'excluded_vehicle_ids': sorted(excl),
     }

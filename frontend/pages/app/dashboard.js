@@ -5,8 +5,9 @@ import * as XLSX from 'xlsx'
 import useSWR, { useSWRConfig } from 'swr'
 import Layout from '../../components/Layout'
 import InterventionForm from '../../components/InterventionForm'
+import PartnersWidget from '../../components/PartnersWidget'
 import { fmt, fmtDate, fmtDays, vehicleLabel } from '../../lib/format'
-import { ArrowUpRight, Plus, Calendar as CalendarIcon, Wrench, X, TrendingUp } from 'lucide-react'
+import { ArrowUpRight, Plus, Wrench, X, TrendingUp } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,6 +24,21 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 
 const fetcher = (url) => fetch(url).then(r => r.json())
+
+function KpiCard({ title, value, trend, onOpen, primary }) {
+  return (
+    <div className={`kpi-card${primary ? ' primary' : ''}`} onClick={onOpen} style={{ cursor: 'pointer' }}>
+      <div className="kpi-card-header">
+        <div className="kpi-title">{title}</div>
+        <span className="kpi-icon-wrapper" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+          <ArrowUpRight size={16} color={primary ? 'var(--accent-primary)' : 'var(--text-primary)'} />
+        </span>
+      </div>
+      <div className="kpi-value">{value}</div>
+      <div className="kpi-trend" style={primary ? undefined : { color: 'var(--text-secondary)' }}>{trend}</div>
+    </div>
+  )
+}
 const CURRENT_YEAR = new Date().getFullYear()
 
 export default function Dashboard() {
@@ -30,7 +46,6 @@ export default function Dashboard() {
   const { data: stats, error: statsError } = useSWR(`${API_URL}/stats`, fetcher, { refreshInterval: 30000 })
   const { data: vehicles } = useSWR(`${API_URL}/vehicles`, fetcher)
   const { data: charges } = useSWR(`${API_URL}/charges`, fetcher)
-  const { data: events = [] } = useSWR(`${API_URL}/events`, fetcher)
   const { data: interventions = [] } = useSWR(`${API_URL}/interventions`, fetcher)
   const { mutate } = useSWRConfig()
 
@@ -108,7 +123,8 @@ export default function Dashboard() {
     const ventesData = new Array(12).fill(0)
 
     if (vehicles) {
-      vehicles.forEach(v => {
+      const excl = new Set(stats?.excluded_vehicle_ids || [])
+      vehicles.filter(v => !excl.has(v.id)).forEach(v => {
         if (v.date_buy && v.price_buy) {
           const d = new Date(v.date_buy)
           if (d.getFullYear() === chartYear) achatsData[d.getMonth()] += v.price_buy
@@ -127,7 +143,7 @@ export default function Dashboard() {
         { label: 'Ventes', data: ventesData, backgroundColor: '#0d532a', borderRadius: 4 },
       ],
     }
-  }, [vehicles, chartYear])
+  }, [vehicles, chartYear, stats])
 
   const chartOptions = {
     responsive: true,
@@ -156,72 +172,102 @@ export default function Dashboard() {
   const bestVehicle = stats.top_vehicles?.[0]
   const bestVehicleInfo = bestVehicle ? vehicles?.find(v => v.id === bestVehicle.vehicle_id) : null
 
+  const excluded = new Set(stats.excluded_vehicle_ids || [])
+  const soldIds = new Set((stats.per_vehicle || []).filter(p => p.sold).map(p => p.vehicle_id))
+  const vehOf = (id) => vehicles?.find(x => x.id === id)
+  const groupOf = (vid) => (vid == null ? 'sold' : soldIds.has(vid) ? 'sold' : 'stock')
+  const spent = (i) => i.status === 'annulée' ? 0 : i.cost_actual != null ? i.cost_actual : ['terminée', 'en cours'].includes(i.status) ? (i.cost_estimated || 0) : 0
+
   const renderTransactionsList = () => {
     let items = []
+    const tracked = (vehicles || []).filter(v => !excluded.has(v.id))
 
-    if (activeModal === 'ventes' && vehicles) {
-      items = vehicles.filter(v => v.price_sell && v.date_sell)
+    if (activeModal === 'ventes') {
+      items = tracked.filter(v => soldIds.has(v.id))
         .sort((a, b) => new Date(b.date_sell) - new Date(a.date_sell))
-        .map(v => ({ id: v.id, date: v.date_sell, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_sell, type: 'positive' }))
-    } else if (activeModal === 'achats' && vehicles) {
-      items = vehicles.filter(v => v.price_buy && v.date_buy)
+        .map(v => ({ id: v.id, date: v.date_sell, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_sell, type: 'positive', group: 'sold' }))
+    } else if (activeModal === 'achats') {
+      items = tracked.filter(v => v.price_buy)
         .sort((a, b) => new Date(b.date_buy) - new Date(a.date_buy))
-        .map(v => ({ id: v.id, date: v.date_buy, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_buy, type: 'negative' }))
+        .map(v => ({ id: v.id, date: v.date_buy, vehicleName: `${v.brand} ${v.model}`, vehicleReg: v.registration, amount: v.price_buy, type: 'negative', group: groupOf(v.id) }))
     } else if (activeModal === 'charges' && charges) {
-      items = charges
+      items = charges.filter(c => !excluded.has(c.vehicle_id))
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .map(c => {
-          const v = vehicles?.find(x => x.id === c.vehicle_id)
+          const v = vehOf(c.vehicle_id)
           return {
-            id: c.id,
-            date: c.date,
+            id: c.id, date: c.date,
             title: v ? `${v.brand} ${v.model}` : (c.description || c.category),
-            subtitle: v ? [c.category, c.description].filter(Boolean).join(' · ') : null,
-            amount: c.amount,
-            type: 'negative',
+            subtitle: v ? [c.category, c.description].filter(Boolean).join(' · ') : 'Charge générale',
+            amount: c.amount, type: 'negative', group: groupOf(c.vehicle_id),
           }
         })
     } else if (activeModal === 'travaux' && interventions) {
       items = interventions
-        .filter(i => i.status !== 'annulée' && (i.cost_actual != null || i.cost_estimated != null))
+        .filter(i => !excluded.has(i.vehicle_id) && i.status !== 'annulée' && (i.cost_actual != null || i.cost_estimated != null))
         .sort((a, b) => new Date(b.date_planned) - new Date(a.date_planned))
         .map(i => {
-          const v = vehicles?.find(x => x.id === i.vehicle_id)
+          const v = vehOf(i.vehicle_id)
+          const s = spent(i)
           return {
-            id: i.id,
-            date: i.date_planned,
+            id: i.id, date: i.date_planned,
             title: v ? `${v.brand} ${v.model}` : i.title,
-            subtitle: v ? `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}` : (i.cost_actual == null ? 'Estimé' : null),
-            amount: i.cost_actual ?? i.cost_estimated,
-            type: 'negative',
+            subtitle: `${i.title}${i.cost_actual == null ? ' (estimé)' : ''}`,
+            amount: s || i.cost_estimated, type: 'negative',
+            group: s ? groupOf(i.vehicle_id) : 'planned',
           }
         })
+    } else if (activeModal === 'stock') {
+      items = (stats.per_vehicle || []).filter(p => !p.sold).map(p => {
+        const v = vehOf(p.vehicle_id)
+        return {
+          id: p.vehicle_id, vehicleName: v ? `${v.brand} ${v.model}` : 'Véhicule', vehicleReg: v?.registration,
+          subtitle: `achat ${fmt(p.buy)} · charges ${fmt(p.charges)} · travaux ${fmt(p.works)}${p.planned ? ` · prévu ${fmt(p.planned)}` : ''}${p.target ? ` · visé ${fmt(p.target)}` : ''}`,
+          amount: p.buy + p.charges + p.works, type: 'negative', group: 'stock',
+        }
+      })
     }
 
     if (items.length === 0) return <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Aucune transaction trouvée.</div>
 
+    const GROUPS = [
+      ['sold', 'Véhicules vendus — compté dans le profit'],
+      ['stock', 'Véhicules en stock — argent immobilisé, récupéré à la vente'],
+      ['planned', 'Prévu — pas encore dépensé, non compté'],
+    ]
     return (
       <div className="transaction-list">
-        {items.map((item, idx) => (
-          <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eaeaea' }}>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {item.vehicleName ? (
-                  <>
-                    <span>{item.vehicleName}</span>
-                    {item.vehicleReg && <span style={{ color: '#1976d2', marginLeft: 8 }}>{item.vehicleReg}</span>}
-                  </>
-                ) : item.title}
+        {GROUPS.filter(([g]) => items.some(it => it.group === g)).map(([g, label]) => {
+          const list = items.filter(it => it.group === g)
+          const total = list.reduce((a, it) => a + (it.amount || 0), 0)
+          return (
+            <div key={g} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em', color: 'var(--text-secondary)', padding: '8px 0', borderBottom: '2px solid var(--border-color, #eaeaea)' }}>
+                <span>{label}</span><span>{fmt(total)}</span>
               </div>
-              <div style={{ fontSize: 12, color: '#888' }}>
-                {[item.subtitle, fmtDate(item.date)].filter(Boolean).join(' · ')}
-              </div>
+              {list.map((item, idx) => (
+                <div key={idx} className="transaction-item" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid #eaeaea', opacity: g === 'planned' ? 0.6 : 1 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      {item.vehicleName ? (
+                        <>
+                          <span>{item.vehicleName}</span>
+                          {item.vehicleReg && <span style={{ color: '#1976d2', marginLeft: 8 }}>{item.vehicleReg}</span>}
+                        </>
+                      ) : item.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>
+                      {[item.subtitle, item.date && fmtDate(item.date)].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 600, whiteSpace: 'nowrap', color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
+                    {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div style={{ fontWeight: 600, color: item.type === 'positive' ? '#0d532a' : '#d32f2f' }}>
-              {item.type === 'positive' ? '+' : '-'}{fmt(item.amount)}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -255,65 +301,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div className="kpi-grid">
-        <div className="kpi-card primary">
-          <div className="kpi-card-header">
-            <div className="kpi-title">Profit Net Global</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('profit')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <ArrowUpRight size={16} color="var(--accent-primary)" />
-            </button>
-          </div>
-          <div className="kpi-value">{fmt(profit)}</div>
-          <div className="kpi-trend">
-            <span className="kpi-trend-badge">{isProfitNeg ? '-' : '+'} Actuel</span>
-            Vente - achat - charges - travaux
-          </div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-title">Total Ventes</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('ventes')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <ArrowUpRight size={16} color="var(--text-primary)" />
-            </button>
-          </div>
-          <div className="kpi-value">{fmt(stats.total_sell ?? 0)}</div>
-          <div className="kpi-trend">Voir les transactions détaillées</div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-title">Total Achats</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('achats')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <ArrowUpRight size={16} color="var(--text-primary)" />
-            </button>
-          </div>
-          <div className="kpi-value">{fmt(stats.total_buy ?? 0)}</div>
-          <div className="kpi-trend">Voir les transactions détaillées</div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-title">Total Charges</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('charges')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <ArrowUpRight size={16} color="var(--text-primary)" />
-            </button>
-          </div>
-          <div className="kpi-value">{fmt(stats.total_charges ?? 0)}</div>
-          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>Voir les transactions détaillées</div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-title">Total Travaux</div>
-            <button className="kpi-icon-wrapper" onClick={() => setActiveModal('travaux')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <ArrowUpRight size={16} color="var(--text-primary)" />
-            </button>
-          </div>
-          <div className="kpi-value">{fmt(stats.total_interventions ?? 0)}</div>
-          <div className="kpi-trend" style={{ color: 'var(--text-secondary)' }}>Voir les transactions détaillées</div>
-        </div>
+      {/* KPI Grid — les cartes s'additionnent : Profit = Ventes − Achats − Charges − Travaux (véhicules vendus) */}
+      <div className="kpi-grid kpi-grid-3">
+        <KpiCard primary title="Profit Net Global" value={fmt(profit)} onOpen={() => setActiveModal('profit')}
+          trend={<><span className="kpi-trend-badge">{isProfitNeg ? '-' : '+'} Réalisé</span>{stats.count_sold} véhicule(s) vendu(s)</>} />
+        <KpiCard title="Total Ventes" value={fmt(stats.total_sell ?? 0)} onOpen={() => setActiveModal('ventes')}
+          trend="Véhicules vendus uniquement" />
+        <KpiCard title="Achats" value={fmt(stats.total_buy ?? 0)} onOpen={() => setActiveModal('achats')}
+          trend={`des véhicules vendus · + ${fmt(stats.stock_buy)} en stock`} />
+        <KpiCard title="Charges" value={fmt(stats.total_charges ?? 0)} onOpen={() => setActiveModal('charges')}
+          trend={`des véhicules vendus · + ${fmt(stats.stock_charges)} en stock`} />
+        <KpiCard title="Travaux" value={fmt(stats.total_interventions ?? 0)} onOpen={() => setActiveModal('travaux')}
+          trend={`des véhicules vendus · + ${fmt(stats.stock_interventions)} en stock`} />
+        <KpiCard title="Argent en stock" value={fmt(stats.stock_invested ?? 0)} onOpen={() => setActiveModal('stock')}
+          trend={`${stats.stock_count} véhicule(s) · prix visé ${fmt(stats.stock_target)}`} />
       </div>
 
       <div className="dashboard-grid-2">
@@ -335,31 +336,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Planning */}
-        <div className="widget-card">
-          <div className="widget-header">
-            <div className="widget-title">Planning</div>
-            <Link href="/app/planning" className="kpi-icon-wrapper" style={{ background: 'transparent', border: 'none' }}>
-              <ArrowUpRight size={16} color="var(--text-primary)" />
-            </Link>
-          </div>
-          <div style={{ marginBottom: '16px', flex: 1 }}>
-            {events.filter(e => new Date(e.start_time) >= new Date()).slice(0, 2).map((e, idx) => (
-              <div key={idx} style={{ marginBottom: 12 }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px', color: 'var(--text-primary)' }}>{e.title}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                  {fmtDate(e.start_time)} à {new Date(e.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            ))}
-            {events.filter(e => new Date(e.start_time) >= new Date()).length === 0 && (
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Aucun événement à venir.</p>
-            )}
-          </div>
-          <Link href="/app/planning" className="btn btn-primary" style={{ width: '100%' }}>
-            <CalendarIcon size={16} /> Ouvrir le planning complet
-          </Link>
-        </div>
+        {/* Associés : qui achète / vend, investissements et commissions */}
+        <PartnersWidget />
       </div>
 
       <div className="dashboard-grid-2">
@@ -429,12 +407,33 @@ export default function Dashboard() {
                 {activeModal === 'charges' && 'Détail des Charges'}
                 {activeModal === 'travaux' && 'Détail des Travaux'}
                 {activeModal === 'profit' && 'Analyse du Profit'}
+                {activeModal === 'stock' && 'Argent immobilisé en stock'}
               </h2>
               <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
             {activeModal === 'profit' ? (
               <div>
+                <div className="summary-box" style={{ marginBottom: 16 }}>
+                  <div className="row"><span>Ventes</span><span>{fmt(stats.total_sell)}</span></div>
+                  <div className="row"><span>− Achats des véhicules vendus</span><span>{fmt(stats.total_buy)}</span></div>
+                  <div className="row"><span>− Charges</span><span>{fmt(stats.total_charges)}</span></div>
+                  <div className="row"><span>− Travaux</span><span>{fmt(stats.total_interventions)}</span></div>
+                  <div className="row"><b>= Profit net</b><b>{fmt(stats.total_profit)}</b></div>
+                </div>
+                {(stats.per_vehicle || []).filter(p => p.sold).sort((a, b) => b.profit - a.profit).map(p => {
+                  const v = vehOf(p.vehicle_id)
+                  return (
+                    <div key={p.vehicle_id} className="mini-stat-row">
+                      <span className="mini-stat-label">
+                        <Link href={`/app/vehicles/${p.vehicle_id}`} className="doc-link-main">{v ? `${v.brand} ${v.model} ${v.registration || ''}` : 'Véhicule'}</Link>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmt(p.sell)} − {fmt(p.buy)} − {fmt(p.charges)} − {fmt(p.works)}</div>
+                      </span>
+                      <span className={`mini-stat-value ${p.profit >= 0 ? 'positive' : 'negative'}`}>{fmt(p.profit)}</span>
+                    </div>
+                  )
+                })}
+                <div style={{ height: 12 }} />
                 <div className="mini-stat-row">
                   <span className="mini-stat-label">Marge moyenne / véhicule vendu</span>
                   <span className="mini-stat-value">{fmt(stats.avg_profit)}</span>

@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   FileSignature,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from 'lucide-react'
 import { API_URL } from '../lib/api'
 
@@ -27,6 +28,7 @@ const fetcher = (url) => fetch(url).then(r => r.json())
 const navLinks = [
   { href: '/app/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
   { href: '/app/vehicles',  icon: Car,             label: 'Flotte' },
+  { href: '/app/associes',  icon: Users,           label: 'Associés' },
   { href: '/app/planning',  icon: Calendar,        label: 'Planning' },
   { href: '/app/admin', icon: FileText,        label: 'Administratif', match: ['/app/admin', '/app/documents'] },
   { href: '/app/pdf-generator', icon: FileSignature, label: 'Générateur PDF' },
