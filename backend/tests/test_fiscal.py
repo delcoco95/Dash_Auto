@@ -127,3 +127,43 @@ def test_excluded_vehicle():
     assert after['commissions'] == before - 1758
     assert 'Mercedes Benz Class-C200 - FP-926-RB' not in after['stock_fin']['vehicles']
     client.put('/fiscal/settings', json={'excluded_vehicle_ids': ''})
+
+
+def test_checklist_and_states():
+    c = client.get('/fiscal/checklist?year=2026').json()
+    keys = {i['key'] for i in c['items']}
+    assert 'sale_cession:17' in keys and 'sale_payment:16' in keys and 'ca3_receipt:2026-02' in keys
+    feb = next(i for i in c['items'] if i['key'] == 'ca3_receipt:2026-02')
+    assert feb['status'] == 'classé'  # n° de dépôt connu
+    r = client.put('/fiscal/checklist/sale_payment:16', json={'status': 'trouvé', 'note': 'virement'})
+    assert r.status_code == 200
+    c2 = client.get('/fiscal/checklist?year=2026').json()
+    assert next(i for i in c2['items'] if i['key'] == 'sale_payment:16')['status'] == 'trouvé'
+    assert client.put('/fiscal/checklist/x', json={'status': 'bidon'}).status_code == 400
+
+
+def test_purchase_and_sale_flow():
+    r = client.post('/fiscal/purchase', json={'vehicle': {'brand': 'Peugeot', 'model': '208', 'registration': 'AB-123-CD'},
+                                              'supplier_type': 'auto1', 'date_buy': '2026-11-03', 'car_price': 2000,
+                                              'car_invoice_ref': 'V1', 'fees_ht': 600, 'fees_ref': 'F1', 'transport_ht': 300})
+    assert r.status_code == 201
+    vid = r.json()['id']
+    assert r.json()['price_buy'] == 2900 and set(r.json()['entries']) == {'car', 'fees', 'transport'}
+    nov = vat(11)['lines']
+    assert nov['A3'] == 900 and nov['TD'] == 0
+    s = client.post(f'/fiscal/sales/{vid}', json={'date_sell': '2026-11-20', 'price_sell': 3200, 'buyer_name': 'Test',
+                                                  'payment_method': 'virement'}).json()
+    assert s['invoice_number'].startswith('NEB-2026-') and s['margin_ttc'] == 1200 and s['vat_margin'] == 200
+    assert vat(11)['lines']['TD'] == 200
+    s2 = client.post(f'/fiscal/sales/{vid}', json={'date_sell': '2026-11-20', 'price_sell': 3200}).json()
+    assert s2['invoice_number'] == s['invoice_number']   # numéro stable
+    client.delete(f'/vehicles/{vid}')
+
+
+def test_rectification_status():
+    d = client.post('/fiscal/declarations', json={'kind': 'CA3', 'period_start': '2026-07-01', 'period_end': '2026-07-31',
+                                                  'status': 'à rectifier', 'amount_declared': 46}).json()
+    m = vat(7)
+    assert m['status'] == 'à rectifier' and m['rectification']['declared_due'] == 46
+    assert m['rectification']['difference'] == m['lines']['TD'] - 46
+    client.delete(f"/fiscal/declarations/{d['id']}")

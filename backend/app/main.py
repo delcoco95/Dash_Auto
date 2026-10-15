@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_agent, auth, automation, crud, fiscal, schemas, statistics
+from . import ai_agent, auth, automation, crud, fiscal, schemas, statistics, workflow
 from .database import get_db, init_db
 
 app = FastAPI(title="Dash Auto API", version="2.0")
@@ -52,6 +52,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.include_router(automation.router)
 app.include_router(fiscal.router)
+app.include_router(workflow.router)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf',
                       '.doc', '.docx', '.xls', '.xlsx', '.csv'}

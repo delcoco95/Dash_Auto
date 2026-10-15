@@ -31,6 +31,7 @@ from .finance import intervention_cost
 router = APIRouter(prefix="/fiscal", tags=["fiscal"])
 
 VAT_RATE = 20.0
+MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 ENTRY_KINDS = {
     'achat_vehicule_marge': "Achat véhicule (régime de la marge)",
     'service_ue': "Prestation UE — TVA autoliquidée",
@@ -39,6 +40,7 @@ ENTRY_KINDS = {
     'sans_tva': "Dépense sans TVA",
 }
 DONE_STATUSES = ('déposée', 'payée', 'non due')
+DECL_STATUSES = ('à faire', 'déposée', 'payée', 'non due', 'à rectifier')
 
 DEFAULT_SETTINGS = {
     'company_name': 'SAS NEBAUTO',
@@ -51,7 +53,11 @@ DEFAULT_SETTINGS = {
     'is_reference_amount': '0',     # IS de l'exercice précédent (acomptes dus si > 3 000 €)
     'is_deficit_carryforward': '413',  # déficit reportable (exercice 2024-2025)
     'fiscal_year_end': '12-31',
-    'excluded_vehicle_ids': '',     # véhicules ignorés (ex. achat futur pas encore réalisé), ids séparés par des virgules
+    'excluded_vehicle_ids': '',
+    'company_address': '329 Rue de Paris, 95150 Taverny',
+    'company_siret': '937 843 142 00012',
+    'company_phone': '06 51 48 50 28',
+    'company_email': '',     # véhicules ignorés (ex. achat futur pas encore réalisé), ids séparés par des virgules
 }
 
 
@@ -296,6 +302,8 @@ def _compute_month(data: _Data, year: int, month: int, credit_in: float) -> dict
     today = date.today()
     if decl and decl.status in DONE_STATUSES:
         status = decl.status
+    elif decl and decl.status == 'à rectifier':
+        status = 'à rectifier'
     elif today <= end:
         status = 'en cours'
     elif today > due:
@@ -321,6 +329,17 @@ def _compute_month(data: _Data, year: int, month: int, credit_in: float) -> dict
     if decl and decl.status in DONE_STATUSES and decl.credit_carried is not None:
         credit_out = decl.credit_carried
 
+    # Déclaration déposée mais à corriger : écart entre ce qui a été déclaré et le calcul réel
+    rectification = None
+    if decl and decl.status == 'à rectifier':
+        declared = decl.amount_declared or 0
+        declared_credit = decl.credit_carried or 0
+        rectification = {
+            'declared_due': declared, 'declared_credit': declared_credit,
+            'real_due': lines['TD'], 'real_credit': lines['27'],
+            'difference': (lines['TD'] - declared) - (lines['27'] - declared_credit),
+        }
+
     return {
         'year': year, 'month': month, 'period_start': start, 'period_end': end,
         'due_date': due, 'status': status, 'neant': neant,
@@ -331,7 +350,7 @@ def _compute_month(data: _Data, year: int, month: int, credit_in: float) -> dict
         'sales': sales, 'autoliquidations': autoliq, 'deductible': deductible,
         'immobilisations': immob, 'sans_tva': no_vat, 'achats_vehicules': car_buys,
         'unqualified': unqualified, 'alerts': alerts, 'penalty': penalty,
-        'credit_out': credit_out,
+        'credit_out': credit_out, 'rectification': rectification,
     }
 
 
@@ -688,13 +707,16 @@ def overview(year: int, db: Session = Depends(get_db)):
     tracked = [m for m in months if not m.get('not_tracked')]
     totals = {
         'tva_due': sum(m['lines'].get('TD', 0) for m in tracked),
-        'tva_due_unpaid': sum(m['lines'].get('TD', 0) for m in tracked if m['status'] not in DONE_STATUSES),
+        'tva_due_unpaid': sum(m['lines'].get('TD', 0) for m in tracked if m['status'] not in DONE_STATUSES + ('à rectifier',))
+                          + sum((m.get('rectification') or {}).get('difference', 0) for m in tracked),
         'late_count': sum(1 for d in deadlines if d['status'] == 'en retard'),
+        'to_rectify_count': sum(1 for m in tracked if m['status'] == 'à rectifier'),
+        'to_rectify_amount': sum((m.get('rectification') or {}).get('difference', 0) for m in tracked),
         'todo_count': sum(1 for d in deadlines if d['status'] in ('à faire', 'en retard')),
         'penalties_estimate': r2(sum((m.get('penalty') or {}).get('total', 0) for m in tracked)),
         'alerts': sum(len(m.get('alerts', [])) + len(m.get('unqualified', [])) for m in tracked),
     }
-    summary = [{k: m.get(k) for k in ('month', 'status', 'due_date', 'neant', 'penalty', 'declaration', 'not_tracked')}
+    summary = [{k: m.get(k) for k in ('month', 'status', 'due_date', 'neant', 'penalty', 'declaration', 'not_tracked', 'rectification')}
                | {'lines': m.get('lines', {}), 'sales_count': len(m.get('sales', [])),
                   'alerts_count': len(m.get('alerts', [])) + len(m.get('unqualified', []))} for m in months]
     return {'year': year, 'settings': data.settings, 'months': summary, 'is': is_info, 'cvae': cvae,

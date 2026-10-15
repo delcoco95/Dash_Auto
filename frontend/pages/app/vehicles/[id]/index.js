@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
+import SaleModal from '../../../../components/SaleModal'
 import Layout from '../../../../components/Layout'
 import FilePreviewModal from '../../../../components/FilePreviewModal'
 import DocumentUploadForm from '../../../../components/DocumentUploadForm'
@@ -12,8 +13,7 @@ import { getDocIcon, docStatusBadgeClass } from '../../../../lib/documents'
 import {
   Info, Image as ImageIcon, FileText, Wrench, Receipt, History,
   Car, Euro, Settings2, StickyNote, Pencil, Trash2, CheckCircle2,
-  AlertCircle, AlertTriangle, Star, Plus,
-} from 'lucide-react'
+  AlertCircle, AlertTriangle, Star, Plus, BadgeEuro } from 'lucide-react'
 import { API_URL } from '../../../../lib/api'
 
 
@@ -90,6 +90,7 @@ export default function VehicleDetail() {
   const [tab, setTab] = useState('info')
   const [toasts, setToasts] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showSale, setShowSale] = useState(false)
   const [previewFile, setPreviewFile] = useState(null)
 
   // Data fetching
@@ -278,6 +279,7 @@ export default function VehicleDetail() {
   return (
     <Layout title={title}>
       <Toast toasts={toasts} />
+      {showSale && <SaleModal vehicle={vehicle} onClose={() => setShowSale(false)} onDone={() => { mutV(); mutD() }} />}
       {confirmDelete && (
         <ConfirmModal
           title="Supprimer ce véhicule ?"
@@ -308,6 +310,9 @@ export default function VehicleDetail() {
             </div>
           </div>
           <div className="detail-actions">
+            <button className="btn btn-primary" onClick={() => setShowSale(true)}>
+              <BadgeEuro size={15} /> {vehicle.status === 'vendu' ? 'Vente / facture' : 'Vendre'}
+            </button>
             <Link href={`/app/vehicles/${id}/edit`} className="btn btn-ghost">
               <Pencil size={15} /> Modifier
             </Link>

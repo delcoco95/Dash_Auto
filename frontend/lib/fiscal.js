@@ -46,6 +46,7 @@ export function statusBadge(status) {
     case 'hors suivi':
       return 'badge-doc-archive'
     case 'en retard':
+    case 'à rectifier':
       return 'badge-doc-expire'
     case 'en cours':
       return 'badge-todo'

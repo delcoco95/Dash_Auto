@@ -16,7 +16,8 @@ import {
   LogOut,
   Menu,
   X,
-  FileSignature
+  FileSignature,
+  AlertTriangle
 } from 'lucide-react'
 import { API_URL } from '../lib/api'
 
@@ -27,7 +28,7 @@ const navLinks = [
   { href: '/app/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
   { href: '/app/vehicles',  icon: Car,             label: 'Flotte' },
   { href: '/app/planning',  icon: Calendar,        label: 'Planning' },
-  { href: '/app/documents', icon: FileText,        label: 'Administratif' },
+  { href: '/app/admin', icon: FileText,        label: 'Administratif', match: ['/app/admin', '/app/documents'] },
   { href: '/app/pdf-generator', icon: FileSignature, label: 'Générateur PDF' },
 ]
 
@@ -41,6 +42,10 @@ export default function Layout({ children, title = 'Dash Auto' }) {
 
   const { data: docs } = useSWR(`${API_URL}/documents`, fetcher, { refreshInterval: 60000 })
   const docAlertCount = countDocAlerts(docs)
+  const { data: upcoming } = useSWR(`${API_URL}/fiscal/upcoming`, fetcher, { refreshInterval: 300000 })
+  const urgent = Array.isArray(upcoming) ? upcoming : []
+  const urgentCount = urgent.length
+  const [bannerHidden, setBannerHidden] = useState(false)
 
   const params = new URLSearchParams()
   if (query.trim().length >= 2) params.set('search', query.trim())
@@ -131,8 +136,8 @@ export default function Layout({ children, title = 'Dash Auto' }) {
 
           <div className="sidebar-section-label">MENU</div>
           <nav className="sidebar-nav">
-            {navLinks.map(({ href, icon: Icon, label }) => {
-              const isActive = href !== '#' && router.pathname.startsWith(href)
+            {navLinks.map(({ href, icon: Icon, label, match }) => {
+              const isActive = href !== '#' && (match || [href]).some(p => router.pathname.startsWith(p))
               return (
                 <Link
                   key={label}
@@ -141,8 +146,8 @@ export default function Layout({ children, title = 'Dash Auto' }) {
                 >
                   <span className="nav-icon"><Icon size={18} /></span>
                   <span>{label}</span>
-                  {href === '/app/documents' && docAlertCount > 0 && (
-                    <span className="nav-badge" title={`${docAlertCount} document(s) à surveiller`}>{docAlertCount}</span>
+                  {href === '/app/admin' && (docAlertCount + urgentCount) > 0 && (
+                    <span className="nav-badge" title={`${urgentCount} échéance(s) fiscale(s) et ${docAlertCount} document(s) à surveiller`}>{docAlertCount + urgentCount}</span>
                   )}
                 </Link>
               )
@@ -204,6 +209,20 @@ export default function Layout({ children, title = 'Dash Auto' }) {
               </form>
             </div>
           </header>
+
+          {urgentCount > 0 && !bannerHidden && !router.pathname.startsWith('/app/admin') && !router.pathname.startsWith('/app/documents') && (
+            <div className="fiscal-banner" role="status">
+              <AlertTriangle size={16} />
+              <span>
+                {urgent[0].status === 'en retard' ? `${urgent[0].label} en retard` :
+                 urgent[0].status === 'à rectifier' ? `${urgent[0].label} à rectifier` :
+                 `${urgent[0].label} à déposer dans ${urgent[0].days_left} jour${urgent[0].days_left > 1 ? 's' : ''}`}
+                {urgentCount > 1 ? ` · +${urgentCount - 1} autre${urgentCount > 2 ? 's' : ''} action${urgentCount > 2 ? 's' : ''}` : ''}
+              </span>
+              <Link href="/app/admin" className="fiscal-banner-link">Voir</Link>
+              <button className="fiscal-banner-close" onClick={() => setBannerHidden(true)} aria-label="Masquer"><X size={14} /></button>
+            </div>
+          )}
 
           {children}
         </main>

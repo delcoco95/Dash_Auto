@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
@@ -10,6 +10,8 @@ import {
   Plus, X, Pencil, Trash2, AlertTriangle, Info, CheckCircle2, Settings, CalendarClock, Receipt, Landmark, ExternalLink,
 } from 'lucide-react'
 import { API_URL } from '../../../lib/api'
+import { uploadDocument, setChecklist } from '../../../lib/upload'
+import { useRouter } from 'next/router'
 
 
 const fetcher = (url) => fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() })
@@ -186,7 +188,7 @@ function FiledForm({ month, year, current, onSaved, onCancel }) {
         <div className="form-group">
           <label className="form-label">Statut</label>
           <select className="form-input" value={f.status} onChange={e => set('status', e.target.value)}>
-            {['déposée', 'payée', 'à faire'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['déposée', 'payée', 'à rectifier', 'à faire'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="form-group">
@@ -251,11 +253,31 @@ function SettingsForm({ settings, onSaved, onCancel }) {
 
 // ── Détail d'un mois de TVA ──────────────────────────────────────
 function MonthDetail({ year, month, vehicles, onQualify, onEditEntry, onFiled }) {
-  const { data: m, error } = useSWR(`${API_URL}/fiscal/vat?year=${year}&month=${month}`, fetcher)
+  const { data: m, error, mutate: mutM } = useSWR(`${API_URL}/fiscal/vat?year=${year}&month=${month}`, fetcher)
+  const { data: cl, mutate: mutCl } = useSWR(`${API_URL}/fiscal/checklist?year=${year}`, fetcher)
+  const [step, setStep] = useState(1)
+  const [uploading, setUploading] = useState(false)
+  const receiptRef = useRef()
+  useEffect(() => { setStep(1) }, [month])
   if (error) return <div className="empty-state">Impossible de charger le détail du mois.</div>
   if (!m) return <div className="loading-spinner"><div className="spinner" /></div>
   if (m.not_tracked) return <div className="empty-state">Mois antérieur au suivi.</div>
   const L = m.lines
+  const monthItems = (cl?.items || []).filter(i => i.month === month)
+  const missing = monthItems.filter(i => i.status === 'à trouver' && i.priority === 'obligatoire')
+  const receiptKey = `ca3_receipt:${year}-${String(month).padStart(2, '0')}`
+  const uploadReceipt = async (file) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const doc = await uploadDocument({ file, category: 'Autre', name: `Accusé de réception CA3 ${MONTHS[month - 1]} ${year}`, date: new Date().toISOString().slice(0, 10) })
+      await setChecklist(receiptKey, { document_id: doc.id, status: 'classé' })
+      toast.success('Accusé enregistré dans Documents')
+      mutCl()
+    } catch (e) { toast.error(e.message) } finally { setUploading(false) }
+  }
+  const receipt = monthItems.find(i => i.key === receiptKey)
+  const STEPS = ['Vérifier', 'Recopier les cases', 'Payer', 'Enregistrer']
   const shown = CA3_CASES.filter(c => (L[c.key] ?? 0) !== 0 || (c.taxKey && L[c.taxKey]) || ['16', '23', 'TD', '32'].includes(c.code))
 
   return (
@@ -274,7 +296,31 @@ function MonthDetail({ year, month, vehicles, onQualify, onEditEntry, onFiled })
         </div>
       </div>
 
-      {m.neant ? (
+      {m.rectification && (
+        <div className="inline-form" style={{ borderColor: 'var(--danger)', background: 'var(--danger-light)' }}>
+          <b>Déclaration déposée à corriger.</b> Déclaré : {eur(m.rectification.declared_due)} à payer{m.rectification.declared_credit ? ` (crédit ${eur(m.rectification.declared_credit)})` : ''} · Réel : {eur(m.lines.TD)}{m.lines['27'] ? ` (crédit ${eur(m.lines['27'])})` : ''} · <b>Écart à régulariser : {eur(m.rectification.difference)}</b>
+          <div className="form-hint" style={{ color: 'inherit' }}>
+            Régularisez spontanément (droit à l'erreur, loi ESSOC) : écrivez au SIE par la messagerie de l'espace pro pour déposer une déclaration rectificative de ce mois, ou régulariser sur la prochaine CA3 selon leur réponse. Les cases ci-dessous sont les valeurs correctes.
+          </div>
+        </div>
+      )}
+
+      <div className="stepper">
+        {STEPS.map((label, i) => (
+          <button key={label} className={`stepper-item${step === i + 1 ? ' active' : ''}${step > i + 1 ? ' done' : ''}`} onClick={() => setStep(i + 1)}>
+            <span className="stepper-num">{step > i + 1 ? '✓' : i + 1}</span>{label}
+          </button>
+        ))}
+      </div>
+
+      {step === 1 && missing.length > 0 && (
+        <div className="inline-form" style={{ borderColor: 'var(--warning)', background: 'var(--warning-light)' }}>
+          <b>{missing.length} justificatif(s) obligatoire(s) manquant(s)</b> pour ce mois — vous pouvez déclarer, mais rassemblez-les vite.{' '}
+          <Link href="/app/admin/justificatifs" className="doc-link-main">Voir les justificatifs</Link>
+        </div>
+      )}
+
+      {step === 2 && (m.neant ? (
         <div className="inline-form" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <Info size={18} color="var(--accent-primary)" />
           <div><b>Déclaration « néant »</b> : aucune opération ce mois-ci. Cochez la case « néant » sur le formulaire.</div>
@@ -300,9 +346,19 @@ function MonthDetail({ year, month, vehicles, onQualify, onEditEntry, onFiled })
             </table>
           </div>
         </>
+      ))}
+
+      {step === 3 && (
+        <div className="summary-box" style={{ marginBottom: 16 }}>
+          <div className="row"><span>Montant à payer (case 32)</span><b>{eur(L['32'] || 0)}</b></div>
+          {L['27'] ? <div className="row"><span>Crédit à reporter le mois suivant (case 27)</span><b>{eur(L['27'])}</b></div> : null}
+          <p className="form-hint">
+            {L['32'] ? "Le paiement se fait par prélèvement au moment de valider la déclaration. Vérifiez dans l'espace pro (Gérer mes comptes bancaires) que l'IBAN de la société est enregistré et que votre banque a enregistré le mandat SEPA B2B de la DGFiP." : 'Aucun paiement pour ce mois.'}
+          </p>
+        </div>
       )}
 
-      {m.penalty && (
+      {step === 3 && m.penalty && (
         <div className="inline-form" style={{ borderColor: 'var(--danger)', background: 'var(--danger-light)' }}>
           <b>Déclaration en retard — estimation des pénalités :</b> majoration 10 % = {eur(m.penalty.majoration_10, 2)},
           intérêts de retard 0,20 %/mois × {m.penalty.months} = {eur(m.penalty.interets, 2)} → environ <b>{eur(m.penalty.total, 2)}</b> en plus.
@@ -310,6 +366,7 @@ function MonthDetail({ year, month, vehicles, onQualify, onEditEntry, onFiled })
         </div>
       )}
 
+      {step === 1 && <>
       {(m.alerts.length > 0) && (
         <div style={{ marginBottom: 20 }}>
           {m.alerts.map((a, i) => (
@@ -398,6 +455,24 @@ function MonthDetail({ year, month, vehicles, onQualify, onEditEntry, onFiled })
           </div>
         </>
       )}
+      </>}
+
+      {step === 4 && (
+        <div className="summary-box" style={{ marginBottom: 16 }}>
+          <p style={{ marginBottom: 10 }}>Après avoir validé sur impots.gouv : téléchargez l'accusé de réception (PDF), déposez-le ici, puis marquez la déclaration comme déposée avec son numéro.</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input ref={receiptRef} type="file" accept="application/pdf,image/*" hidden onChange={e => uploadReceipt(e.target.files?.[0])} />
+            <button className="btn btn-outline" onClick={() => receiptRef.current?.click()} disabled={uploading}>{uploading ? 'Envoi…' : "Déposer l'accusé (PDF)"}</button>
+            <button className="btn btn-primary" onClick={() => onFiled(m)}><CheckCircle2 size={15} /> {m.declaration ? 'Modifier le suivi' : 'Marquer comme déposée'}</button>
+            {receipt?.document && <span className="muted" style={{ fontSize: 12 }}>Accusé classé : {receipt.document.name}</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="wizard-actions">
+        <button className="btn btn-ghost" disabled={step === 1} onClick={() => setStep(s => Math.max(1, s - 1))}>← Précédent</button>
+        {step < 4 && <button className="btn btn-primary" onClick={() => setStep(s => Math.min(4, s + 1))}>Suivant →</button>}
+      </div>
     </div>
   )
 }
@@ -417,13 +492,17 @@ export default function Fiscalite() {
   const { mutate: mutDetail } = useSWR(month ? `${API_URL}/fiscal/vat?year=${year}&month=${month}` : null, fetcher)
 
   // Mois sélectionné par défaut : le plus ancien en retard, sinon le dernier mois clos.
+  const router = useRouter()
   useEffect(() => {
     if (!ov || month) return
+    if (router.query.month) { setMonth(parseInt(router.query.month)); return }
+    const rect = ov.months.find(m => m.status === 'à rectifier')
+    if (rect) { setMonth(rect.month); return }
     const late = ov.months.find(m => m.status === 'en retard')
     const todo = ov.months.find(m => m.status === 'à faire')
     const last = [...ov.months].reverse().find(m => m.status !== 'en cours' && !m.not_tracked)
     setMonth((late || todo || last || ov.months[0])?.month || 1)
-  }, [ov, month])
+  }, [ov, month, router.query.month])
 
   const refreshAll = () => { mutOv(); mutEntries(); mutDetail() }
 

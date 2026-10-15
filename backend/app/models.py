@@ -224,3 +224,29 @@ class TaxSetting(Base):
     __tablename__ = 'tax_settings'
     key = Column(String, primary_key=True)
     value = Column(Text, nullable=True)
+
+
+class ChecklistState(Base):
+    """État d'un justificatif attendu (clé calculée : 'entry:12', 'sale_cession:7', 'ca3_receipt:2026-05'…)."""
+    __tablename__ = 'checklist_states'
+    key = Column(String, primary_key=True)
+    status = Column(String, default='à trouver')          # à trouver / trouvé / classé / non applicable
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True)
+    note = Column(Text, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class VehicleSale(Base):
+    """Informations de vente (acheteur, paiement, facture) — une ligne par véhicule vendu."""
+    __tablename__ = 'vehicle_sales'
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id', ondelete='CASCADE'), primary_key=True)
+    buyer_type = Column(String, default='particulier')    # particulier / professionnel
+    buyer_name = Column(String, nullable=True)
+    buyer_address = Column(Text, nullable=True)
+    buyer_siret = Column(String, nullable=True)
+    payment_method = Column(String, nullable=True)        # virement / chèque / espèces / carte / financement
+    payment_ref = Column(String, nullable=True)
+    invoice_number = Column(String, nullable=True, unique=True)
+    km_sale = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

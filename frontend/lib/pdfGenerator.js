@@ -10,7 +10,8 @@ const ACCENT = '#0d532a'
 const LINE = '#eaeaea'
 
 function money(n) {
-  return `${(Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  // jsPDF ne sait pas afficher les espaces insécables fines utilisées par fr-FR (rendues « / »)
+  return `${(Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[\u202f\u00a0]/g, ' ')} €`
 }
 
 // Formate une date "yyyy-mm-dd" en "jj/mm/aaaa" sans décalage de fuseau horaire.
@@ -232,5 +233,66 @@ export function buildProcurationPDF({ mandant = {}, mandataire = {}, vehicle = n
   doc.text('(précédée de la mention « Bon pour pouvoir »)', MARGIN + halfW, y + 34)
 
   footer(doc, 'Procuration')
+  return doc
+}
+
+// Facture de vente d'un véhicule d'occasion sous le régime de la marge (art. 297 A et 297 E du CGI) :
+// la TVA n'apparaît pas sur la facture, seul le prix total est indiqué avec la mention obligatoire.
+export function buildMarginSaleInvoicePDF({ company = {}, invoiceNumber, invoiceDate, buyer = {}, vehicle = {}, price, paymentMethod, paymentRef, km }) {
+  const doc = newDoc()
+  let y = 18
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(INK)
+  doc.text(company.name || 'Société', MARGIN, y)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(MUTED)
+  let cy = y + 6
+  ;[company.address, company.phone, company.email, company.siret ? `SIRET : ${company.siret}` : null]
+    .filter(Boolean).forEach(l => { doc.text(l, MARGIN, cy); cy += 4.5 })
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(ACCENT)
+  doc.text('FACTURE DE VENTE', PAGE_W - MARGIN, y + 3, { align: 'right' })
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK)
+  doc.text(`N° ${invoiceNumber}`, PAGE_W - MARGIN, y + 11, { align: 'right' })
+  doc.text(`Date : ${fmtFR(invoiceDate)}`, PAGE_W - MARGIN, y + 16.5, { align: 'right' })
+
+  y = Math.max(cy, y + 22) + 6
+  doc.setDrawColor(LINE); doc.line(MARGIN, y, PAGE_W - MARGIN, y); y += 8
+
+  const colW = (PAGE_W - 2 * MARGIN - 10) / 2
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(MUTED)
+  doc.text('ACHETEUR', MARGIN, y)
+  doc.text('VÉHICULE VENDU', MARGIN + colW + 10, y)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK)
+  let by = y + 5.5
+  ;[buyer.name, buyer.address, buyer.siret ? `SIRET : ${buyer.siret}` : null].filter(Boolean)
+    .forEach(l => { const w = doc.splitTextToSize(l, colW); doc.text(w, MARGIN, by); by += 5 * w.length })
+  let vy = y + 5.5
+  ;[[vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(' '),
+    vehicle.registration ? `Immatriculation : ${vehicle.registration}` : null,
+    vehicle.vin ? `VIN : ${vehicle.vin}` : null,
+    vehicle.year ? `Année : ${vehicle.year}` : null,
+    km ? `Kilométrage : ${Number(km).toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g, ' ')} km` : null]
+    .filter(Boolean).forEach(l => { doc.text(l, MARGIN + colW + 10, vy); vy += 5 })
+  y = Math.max(by, vy) + 6
+
+  autoTable(doc, {
+    startY: y, margin: { left: MARGIN, right: MARGIN },
+    head: [['Désignation', 'Qté', 'Prix total TTC']],
+    body: [[`Véhicule d'occasion ${[vehicle.brand, vehicle.model].filter(Boolean).join(' ')} — ${vehicle.registration || ''}`, '1', money(price)]],
+    styles: { font: 'helvetica', fontSize: 10, textColor: INK, cellPadding: 3 },
+    headStyles: { fillColor: [13, 83, 42], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 1: { halign: 'right', cellWidth: 16 }, 2: { halign: 'right', cellWidth: 40 } },
+  })
+  y = doc.lastAutoTable.finalY + 10
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(ACCENT)
+  doc.text('Total à payer', PAGE_W - MARGIN - 70, y)
+  doc.setTextColor(INK); doc.text(money(price), PAGE_W - MARGIN, y, { align: 'right' })
+  y += 10
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(INK)
+  if (paymentMethod) { doc.text(`Règlement : ${paymentMethod}${paymentRef ? ` (${paymentRef})` : ''}`, MARGIN, y); y += 6 }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5)
+  doc.text('Régime particulier – Biens d’occasion (article 297 E du CGI).', MARGIN, y); y += 5
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(MUTED)
+  doc.text(doc.splitTextToSize('TVA sur la marge : la TVA n’est pas récupérable par l’acheteur et n’apparaît pas sur cette facture. Véhicule vendu en l’état, certificat de cession (cerfa 15776) remis à l’acheteur.', PAGE_W - 2 * MARGIN), MARGIN, y)
+  footer(doc, `${company.name || ''} — Facture ${invoiceNumber}`)
   return doc
 }

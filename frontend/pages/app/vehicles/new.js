@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../../../components/Layout'
 import VehicleForm from '../../../components/VehicleForm'
-import QuickVehicleForm from '../../../components/QuickVehicleForm'
+import PurchaseWizard from '../../../components/PurchaseWizard'
 import { AlertTriangle } from 'lucide-react'
 import { API_URL } from '../../../lib/api'
 
@@ -42,7 +42,7 @@ export default function NewVehicle() {
           <h1 className="page-title">Ajouter un véhicule</h1>
           <p className="page-subtitle">
             {mode === 'express'
-              ? 'Le strict nécessaire pour créer la fiche — complétez le reste plus tard.'
+              ? "3 étapes : le véhicule, l'achat, puis photos et factures. La TVA est préparée automatiquement."
               : 'Formulaire complet — identité, financier, technique, notes.'}
           </p>
         </div>
@@ -65,12 +65,7 @@ export default function NewVehicle() {
         <div className="card">
           <div className="card-body">
             {mode === 'express' ? (
-              <QuickVehicleForm
-                apiUrl={API_URL}
-                onSubmit={handleSubmit}
-                loading={loading}
-                onSwitchToFull={() => setMode('complete')}
-              />
+              <PurchaseWizard onSwitchToFull={() => setMode('complete')} />
             ) : (
               <VehicleForm
                 apiUrl={API_URL}

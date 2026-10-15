@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { FileText, Landmark } from 'lucide-react'
+import { LayoutGrid, Receipt, ListChecks, FileText } from 'lucide-react'
 
-// Sous-navigation de l'onglet « Administratif » : Documents | Fiscalité.
+// Sous-navigation de l'onglet « Administratif ».
 const TABS = [
+  { href: '/app/admin', label: "Vue d'ensemble", icon: LayoutGrid },
+  { href: '/app/documents/fiscalite', label: 'Déclarations TVA', icon: Receipt },
+  { href: '/app/admin/justificatifs', label: 'Justificatifs', icon: ListChecks },
   { href: '/app/documents', label: 'Documents', icon: FileText },
-  { href: '/app/documents/fiscalite', label: 'Fiscalité & déclarations', icon: Landmark },
 ]
 
 export default function AdminTabs() {
