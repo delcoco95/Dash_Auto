@@ -42,8 +42,14 @@ export default function Layout({ children, title = 'Dash Auto' }) {
 
   const { data: docs } = useSWR(`${API_URL}/documents`, fetcher, { refreshInterval: 60000 })
   const docAlertCount = countDocAlerts(docs)
-  const { data: upcoming } = useSWR(`${API_URL}/fiscal/upcoming`, fetcher, { refreshInterval: 300000 })
-  const urgent = Array.isArray(upcoming) ? upcoming : []
+  const { data: alerts } = useSWR(`${API_URL}/admin/alerts`, fetcher, { refreshInterval: 300000 })
+  // Messages du bandeau : déclarations en retard / proches / à payer, puis justificatifs manquants
+  const urgent = alerts && Array.isArray(alerts.late) ? [
+    ...alerts.late.map(d => `${d.label} en retard`),
+    ...alerts.due_soon.map(d => `${d.label} à déposer avant le ${new Date(d.due_date).toLocaleDateString('fr-FR')}`),
+    ...alerts.unpaid.map(d => `${d.label} déposée mais pas payée`),
+    ...(alerts.missing_proofs ? [`${alerts.missing_proofs} justificatif${alerts.missing_proofs > 1 ? 's' : ''} manquant${alerts.missing_proofs > 1 ? 's' : ''}`] : []),
+  ] : []
   const urgentCount = urgent.length
   const [bannerHidden, setBannerHidden] = useState(false)
 
@@ -147,7 +153,7 @@ export default function Layout({ children, title = 'Dash Auto' }) {
                   <span className="nav-icon"><Icon size={18} /></span>
                   <span>{label}</span>
                   {href === '/app/admin' && (docAlertCount + urgentCount) > 0 && (
-                    <span className="nav-badge" title={`${urgentCount} échéance(s) fiscale(s) et ${docAlertCount} document(s) à surveiller`}>{docAlertCount + urgentCount}</span>
+                    <span className="nav-badge" title={`${urgentCount} alerte(s) administrative(s) et ${docAlertCount} document(s) à surveiller`}>{docAlertCount + urgentCount}</span>
                   )}
                 </Link>
               )
@@ -214,10 +220,8 @@ export default function Layout({ children, title = 'Dash Auto' }) {
             <div className="fiscal-banner" role="status">
               <AlertTriangle size={16} />
               <span>
-                {urgent[0].status === 'en retard' ? `${urgent[0].label} en retard` :
-                 urgent[0].status === 'à rectifier' ? `${urgent[0].label} à rectifier` :
-                 `${urgent[0].label} à déposer dans ${urgent[0].days_left} jour${urgent[0].days_left > 1 ? 's' : ''}`}
-                {urgentCount > 1 ? ` · +${urgentCount - 1} autre${urgentCount > 2 ? 's' : ''} action${urgentCount > 2 ? 's' : ''}` : ''}
+                {urgent[0]}
+                {urgentCount > 1 ? ` · ${urgent.slice(1, 3).join(' · ')}${urgentCount > 3 ? ` · +${urgentCount - 3}` : ''}` : ''}
               </span>
               <Link href="/app/admin" className="fiscal-banner-link">Voir</Link>
               <button className="fiscal-banner-close" onClick={() => setBannerHidden(true)} aria-label="Masquer"><X size={14} /></button>

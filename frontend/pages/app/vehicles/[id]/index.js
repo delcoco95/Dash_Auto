@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import useSWR from 'swr'
 import Link from 'next/link'
 import SaleModal from '../../../../components/SaleModal'
+import MissingProofs from '../../../../components/MissingProofs'
 import Layout from '../../../../components/Layout'
 import FilePreviewModal from '../../../../components/FilePreviewModal'
 import DocumentUploadForm from '../../../../components/DocumentUploadForm'
@@ -328,6 +329,9 @@ export default function VehicleDetail() {
       </div>
 
       <div className="page-body">
+        {/* Alerte : dépense sans facture (DA, transport, garage…) */}
+        <MissingProofs vehicleId={vehicle.id} refreshKey={`${(charges || []).map(c => c.id + ':' + c.amount).join(',')}|${(interventions || []).map(i => i.id + ':' + i.status + ':' + i.cost_actual).join(',')}|${docs?.length || 0}`} />
+
         {/* ── Tabs ── */}
         <div className="tab-bar">
           {TABS.map(t => (

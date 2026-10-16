@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { LayoutGrid, Receipt, ListChecks, FileText } from 'lucide-react'
+import { LayoutGrid, Receipt, Calculator, ListChecks, FileText } from 'lucide-react'
 
 // Sous-navigation de l'onglet « Administratif ».
 const TABS = [
   { href: '/app/admin', label: "Vue d'ensemble", icon: LayoutGrid },
-  { href: '/app/documents/fiscalite', label: 'Déclarations TVA', icon: Receipt },
+  { href: '/app/admin/declarations', label: 'Déclarations', icon: Receipt },
+  { href: '/app/admin/simulateur', label: 'Simulateur', icon: Calculator },
   { href: '/app/admin/justificatifs', label: 'Justificatifs', icon: ListChecks },
   { href: '/app/documents', label: 'Documents', icon: FileText },
 ]
